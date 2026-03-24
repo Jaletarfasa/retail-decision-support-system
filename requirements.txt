@@ -4,7 +4,7 @@ scikit-learn
 xgboost
 optuna
 scipy
-streamlit
+streamlit>=1.32
 pyyaml
 torch
 matplotlib
