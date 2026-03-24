@@ -12,11 +12,6 @@ try:
 except ModuleNotFoundError:
     from explainers import list_explainers, load_explainer_markup
 
-from src.orchestrator import run_pipeline
-
-if "demo_ran" not in st.session_state:
-    run_pipeline(mode="demo")
-    st.session_state["demo_ran"] = True
 # -------------------------------------------------
 # Page config
 # -------------------------------------------------
