@@ -6,3 +6,4 @@ optuna
 scipy
 streamlit
 pyyaml
+torch

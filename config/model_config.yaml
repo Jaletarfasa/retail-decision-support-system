@@ -6,3 +6,19 @@ candidate_models:
   - extra_trees
   - hist_gradient_boosting
   - xgboost
+  - mlp
+  - entity_embedding_nn
+deep_model_params:
+  mlp:
+    hidden_dims: [64, 32]
+    learning_rate: 0.001
+    epochs: 25
+    batch_size: 128
+    seed: 42
+  entity_embedding_nn:
+    categorical_cols: [store_id, sku_id]
+    hidden_dims: [64, 32]
+    learning_rate: 0.001
+    epochs: 25
+    batch_size: 128
+    seed: 42
