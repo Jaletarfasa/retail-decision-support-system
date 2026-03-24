@@ -7,3 +7,5 @@ scipy
 streamlit
 pyyaml
 torch
+matplotlib
+altair==4.2.2
