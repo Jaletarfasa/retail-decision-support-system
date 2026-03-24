@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import yaml
 import pandas as pd
@@ -39,7 +40,7 @@ def _deep_merge_dict(base: dict, overrides: dict) -> dict:
 
 
 def _resolve_runtime_settings(app_cfg: dict, model_cfg: dict, monitoring_cfg: dict) -> tuple[str, dict, dict, dict]:
-    runtime_mode = app_cfg.get("runtime_mode", "standard")
+    runtime_mode = os.environ.get("RETAIL_RUNTIME_MODE", app_cfg.get("runtime_mode", "standard")).strip().lower()
     data_defaults = {
         "n_stores": 30,
         "n_skus": 60,

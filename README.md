@@ -20,4 +20,15 @@ Set the mode in [`config/app_config.yaml`](C:\Users\S.Tarfasa\Desktop\Data Scien
 
 ## Quick start
 
-See [`docs/demo_runbook.md`](C:\Users\S.Tarfasa\Desktop\Data Scientist_2026\retail_decision_support_full_version\docs\demo_runbook.md) for the happy-path install, test, demo pipeline, and dashboard steps.
+```powershell
+python -m pip install -r requirements.txt
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
+python -m pytest tests -q
+.\run_demo_pipeline.ps1
+streamlit run app/streamlit_app.py
+```
+
+More detail:
+
+- Tests and full happy path: [`docs/demo_runbook.md`](C:\Users\S.Tarfasa\Desktop\Data Scientist_2026\retail_decision_support_full_version\docs\demo_runbook.md)
+- Portfolio framing and architecture summary: [`docs/portfolio_overview.md`](C:\Users\S.Tarfasa\Desktop\Data Scientist_2026\retail_decision_support_full_version\docs\portfolio_overview.md)
