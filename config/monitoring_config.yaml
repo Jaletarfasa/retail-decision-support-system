@@ -6,3 +6,6 @@ monitored_features:
 p_threshold: 0.05
 wmape_degradation_threshold: 0.05
 min_drifted_features: 1
+min_sample_size: 2
+demo_overrides:
+  min_sample_size: 5

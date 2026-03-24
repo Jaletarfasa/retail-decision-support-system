@@ -2,3 +2,10 @@ app_name: Retail Decision Support System
 app_mode: local
 app_version: 0.1.0
 artifact_root: artifacts
+runtime_mode: standard
+demo_data:
+  n_stores: 8
+  n_skus: 12
+  n_sites: 8
+  n_days: 45
+  budget_limit: 30000.0

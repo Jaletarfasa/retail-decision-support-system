@@ -48,6 +48,7 @@ DEFAULT_MODEL_CONFIG = {
             "seed": 42,
         },
     },
+    "serial_safe": False,
 }
 
 
@@ -82,12 +83,15 @@ def _load_model_config() -> dict:
 def _build_all_models(model_config: dict | None = None) -> dict:
     config = model_config or _load_model_config()
     deep_params = config.get("deep_model_params", {})
+    serial_safe = config.get("serial_safe", False)
+    rf_n_jobs = 1 if serial_safe else -1
+    xgb_n_jobs = 1 if serial_safe else -1
     return {
         "elasticnet": ElasticNet(alpha=0.1, l1_ratio=0.5, random_state=42),
-        "random_forest": RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
-        "extra_trees": ExtraTreesRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+        "random_forest": RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=rf_n_jobs),
+        "extra_trees": ExtraTreesRegressor(n_estimators=100, random_state=42, n_jobs=rf_n_jobs),
         "hist_gradient_boosting": HistGradientBoostingRegressor(random_state=42),
-        "xgboost": xgb.XGBRegressor(objective="reg:squarederror", n_estimators=200, learning_rate=0.05, max_depth=6, subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1),
+        "xgboost": xgb.XGBRegressor(objective="reg:squarederror", n_estimators=200, learning_rate=0.05, max_depth=6, subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=xgb_n_jobs),
         "mlp": TabularMLPRegressor(
             hidden_dims=tuple(deep_params.get("mlp", {}).get("hidden_dims", [64, 32])),
             learning_rate=deep_params.get("mlp", {}).get("learning_rate", 0.001),

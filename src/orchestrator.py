@@ -28,21 +28,51 @@ from src.reporting import build_executive_summary
 from src.dashboard_data import build_store_dashboard, build_department_dashboard
 
 
+def _deep_merge_dict(base: dict, overrides: dict) -> dict:
+    merged = dict(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_dict(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _resolve_runtime_settings(app_cfg: dict, model_cfg: dict, monitoring_cfg: dict) -> tuple[str, dict, dict, dict]:
+    runtime_mode = app_cfg.get("runtime_mode", "standard")
+    data_defaults = {
+        "n_stores": 30,
+        "n_skus": 60,
+        "n_sites": 20,
+        "n_days": 120,
+        "budget_limit": 75000.0,
+    }
+
+    if runtime_mode == "demo":
+        data_cfg = _deep_merge_dict(data_defaults, app_cfg.get("demo_data", {}))
+        runtime_model_cfg = _deep_merge_dict(model_cfg, model_cfg.get("demo_overrides", {}))
+        runtime_monitoring_cfg = _deep_merge_dict(monitoring_cfg, monitoring_cfg.get("demo_overrides", {}))
+        return runtime_mode, data_cfg, runtime_model_cfg, runtime_monitoring_cfg
+
+    return runtime_mode, data_defaults, model_cfg, monitoring_cfg
+
+
 def main() -> None:
     app_cfg = yaml.safe_load(Path("config/app_config.yaml").read_text())
     model_cfg = yaml.safe_load(Path("config/model_config.yaml").read_text())
     monitoring_cfg = yaml.safe_load(Path("config/monitoring_config.yaml").read_text())
     storage_cfg = yaml.safe_load(Path("config/storage_config.yaml").read_text())
+    runtime_mode, data_cfg, runtime_model_cfg, runtime_monitoring_cfg = _resolve_runtime_settings(app_cfg, model_cfg, monitoring_cfg)
 
     run_id = make_run_id()
     storage = RunStorage(storage_cfg["artifact_root"], run_id)
-    storage.write_manifest({"run_id": run_id, "status": "started", "app_version": app_cfg["app_version"]})
+    storage.write_manifest({"run_id": run_id, "status": "started", "app_version": app_cfg["app_version"], "runtime_mode": runtime_mode})
 
-    stores = generate_store_metadata(30)
-    skus = generate_sku_metadata(60)
+    stores = generate_store_metadata(data_cfg["n_stores"])
+    skus = generate_sku_metadata(data_cfg["n_skus"])
     inventory = generate_inventory_snapshot(stores["store_id"], skus["sku_id"])
-    sites = generate_candidate_sites(20)
-    sales = generate_daily_sales(stores, skus, n_days=120)
+    sites = generate_candidate_sites(data_cfg["n_sites"])
+    sales = generate_daily_sales(stores, skus, n_days=data_cfg["n_days"])
     sales["sales_dollars"] = sales["units_sold"] * sales["price"]
     sales["gross_margin_dollars"] = sales["sales_dollars"] * sales["margin_pct"]
 
@@ -64,7 +94,7 @@ def main() -> None:
     feat = build_features(sales, stores)
     storage.save_csv(feat.head(5000), "feature_sample.csv", "features")
 
-    train_df, test_df = time_split(feat, test_days=model_cfg["test_days"])
+    train_df, test_df = time_split(feat, test_days=runtime_model_cfg["test_days"])
     feature_cols = [
         "store_id", "sku_id", "price", "promo", "lag_1", "lag_7", "lag_28",
         "rolling_mean_7", "rolling_mean_28", "rolling_std_28", "assortment_size",
@@ -72,7 +102,14 @@ def main() -> None:
     ]
     target_col = "units_sold"
 
-    results = fit_and_score_models(train_df, test_df, feature_cols, target_col)
+    results = fit_and_score_models(
+        train_df,
+        test_df,
+        feature_cols,
+        target_col,
+        model_config=runtime_model_cfg,
+        candidate_model_names=runtime_model_cfg.get("candidate_models"),
+    )
     comp = build_model_comparison(results)
     champion, challenger = select_champion_and_challenger(results)
 
@@ -86,12 +123,18 @@ def main() -> None:
     assortment = build_assortment_health_summary(feat)
     inv = build_inventory_recommendations(scored[["store_id", "sku_id", "forecast_units"]], inventory)
     site_scores = score_candidate_sites(sites)
-    site_opt = optimize_sites(site_scores, budget_limit=75000.0)
+    site_opt = optimize_sites(site_scores, budget_limit=float(data_cfg["budget_limit"]))
 
-    drift = run_drift_monitor(train_df, test_df, monitoring_cfg["monitored_features"], monitoring_cfg["p_threshold"])
+    drift = run_drift_monitor(
+        train_df,
+        test_df,
+        runtime_monitoring_cfg["monitored_features"],
+        runtime_monitoring_cfg["p_threshold"],
+        min_sample_size=runtime_monitoring_cfg.get("min_sample_size", 2),
+    )
     retrain = should_retrain(drift, champion.metrics["wmape"], baseline_wmape=champion.metrics["wmape"] - 0.01,
-                             wmape_degradation_threshold=monitoring_cfg["wmape_degradation_threshold"],
-                             min_drifted_features=monitoring_cfg["min_drifted_features"])
+                             wmape_degradation_threshold=runtime_monitoring_cfg["wmape_degradation_threshold"],
+                             min_drifted_features=runtime_monitoring_cfg["min_drifted_features"])
     retrain_audit = build_retraining_audit(retrain, champion.model_name, challenger.model_name if challenger else None)
 
     executive = build_executive_summary(champion.model_name, challenger.model_name if challenger else None, champion.metrics, retrain)
@@ -115,7 +158,7 @@ def main() -> None:
         storage.save_csv(df, fn, section)
         storage.save_table_sqlite(df, table)
 
-    storage.write_manifest({"run_id": run_id, "status": "completed", "app_version": app_cfg["app_version"], "champion_model": champion.model_name})
+    storage.write_manifest({"run_id": run_id, "status": "completed", "app_version": app_cfg["app_version"], "champion_model": champion.model_name, "runtime_mode": runtime_mode})
     print(f"Run complete: {run_id}")
 
 

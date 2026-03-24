@@ -90,6 +90,8 @@ def test_orchestrator_main_smoke(monkeypatch) -> None:
         test_df: pd.DataFrame,
         feature_cols: list[str],
         target_col: str,
+        model_config: dict | None = None,
+        candidate_model_names: list[str] | None = None,
     ) -> list[ModelResult]:
         preds = test_df[target_col].astype(float).rename("forecast_units")
         return [
