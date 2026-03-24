@@ -5,6 +5,8 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 
+from app.explainers import list_explainers, load_explainer_markup
+
 st.set_page_config(
     page_title="Retail Decision Support System",
     layout="wide",
@@ -151,6 +153,15 @@ st.markdown("""
     .badge-green { background: #dcfce7; color: #166534; }
     .badge-amber { background: #fef3c7; color: #92400e; }
     .badge-rose { background: #fee2e2; color: #991b1b; }
+
+    .explainer-frame {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border: 1px solid #dbeafe;
+        border-radius: 18px;
+        padding: 0.8rem;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+        margin-bottom: 0.8rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -201,6 +212,17 @@ def short_model_name(name: str) -> str:
         "extra_trees": "ExtraTrees",
     }
     return mapping.get(name, name)
+
+
+def render_explainer_gallery() -> None:
+    explainers = list_explainers()
+    tabs = st.tabs([explainer.title for explainer in explainers])
+    for tab, explainer in zip(tabs, explainers):
+        with tab:
+            st.caption(explainer.caption)
+            st.markdown('<div class="explainer-frame">', unsafe_allow_html=True)
+            st.markdown(load_explainer_markup(explainer), unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # Run selection
@@ -561,3 +583,10 @@ with m2:
     else:
         st.info("Retraining audit not found.")
     st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('<div class="section-title">Model and System Explainers</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="panel-box">Lightweight explainers summarize how the current forecasting, interaction learning, deep models, and MCP-style orchestration fit together.</div>',
+    unsafe_allow_html=True,
+)
+render_explainer_gallery()

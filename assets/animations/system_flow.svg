@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+  <title id="title">End-to-End System Flow</title>
+  <desc id="desc">A lightweight explainer showing data, feature engineering, modeling, decision outputs, monitoring, and reporting.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
+    </linearGradient>
+    <linearGradient id="cardA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="cardB" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#14b8a6"/>
+    </linearGradient>
+    <linearGradient id="cardC" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c2d12"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="960" height="420" rx="28" fill="url(#bg)"/>
+  <text x="48" y="58" font-size="28" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0f172a">Retail Decision Support System</text>
+  <text x="48" y="88" font-size="15" font-family="Segoe UI, Arial, sans-serif" fill="#475569">One run flows from source generation through forecast scoring into actions, monitoring, and dashboards.</text>
+
+  <rect x="48" y="130" width="150" height="92" rx="18" fill="url(#cardA)"/>
+  <text x="72" y="165" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#ffffff">Source Data</text>
+  <text x="72" y="191" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#dbeafe">Sales, stores, SKUs,</text>
+  <text x="72" y="210" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#dbeafe">inventory, sites</text>
+
+  <rect x="240" y="130" width="150" height="92" rx="18" fill="url(#cardB)"/>
+  <text x="264" y="165" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#ffffff">Features</text>
+  <text x="264" y="191" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#ccfbf1">Lags, rolling stats,</text>
+  <text x="264" y="210" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#ccfbf1">assortment health</text>
+
+  <rect x="432" y="130" width="150" height="92" rx="18" fill="url(#cardA)"/>
+  <text x="456" y="165" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#ffffff">Model Arena</text>
+  <text x="456" y="191" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#dbeafe">Classical + deep</text>
+  <text x="456" y="210" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#dbeafe">candidate scoring</text>
+
+  <rect x="624" y="130" width="150" height="92" rx="18" fill="url(#cardC)"/>
+  <text x="648" y="165" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#ffffff">Decisions</text>
+  <text x="648" y="191" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#ffedd5">Inventory, sites,</text>
+  <text x="648" y="210" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#ffedd5">promotion insights</text>
+
+  <rect x="816" y="130" width="96" height="92" rx="18" fill="url(#cardB)"/>
+  <text x="838" y="165" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#ffffff">UI</text>
+  <text x="829" y="191" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#ccfbf1">Dashboards</text>
+  <text x="832" y="210" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#ccfbf1">Explainers</text>
+
+  <path d="M198 176 H232" stroke="#334155" stroke-width="4" marker-end="url(#arrow)" fill="none"/>
+  <path d="M390 176 H424" stroke="#334155" stroke-width="4" marker-end="url(#arrow)" fill="none"/>
+  <path d="M582 176 H616" stroke="#334155" stroke-width="4" marker-end="url(#arrow)" fill="none"/>
+  <path d="M774 176 H808" stroke="#334155" stroke-width="4" marker-end="url(#arrow)" fill="none"/>
+
+  <rect x="208" y="286" width="540" height="74" rx="20" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
+  <text x="238" y="317" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#1e3a8a">Monitoring and Retraining Loop</text>
+  <text x="238" y="343" font-size="14" font-family="Segoe UI, Arial, sans-serif" fill="#475569">Drift checks and retraining review watch whether the champion model still deserves to stay in production.</text>
+  <path d="M760 222 C810 250 808 320 748 323" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrow)" fill="none"/>
+</svg>
