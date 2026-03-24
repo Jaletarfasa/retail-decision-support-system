@@ -204,7 +204,7 @@ def find_csv_files() -> List[Path]:
 
     csvs: List[Path] = []
     for path in DEMO_DIR.rglob("*.csv"):
-        # Skip raw source files in the cloud demo
+        # skip raw source files for the public demo
         if "source" in path.parts:
             continue
         csvs.append(path)
