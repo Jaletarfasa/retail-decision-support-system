@@ -38,6 +38,20 @@ class ToolResponse:
 
 
 @dataclass
+class ControllerState:
+    completed_steps: list[str] = field(default_factory=list)
+    tool_outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class ControllerResult:
+    status: Literal["success", "error"]
+    state: ControllerState
+    final_output: dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+
+
+@dataclass
 class ForecastPipelineRequest:
     train_df: pd.DataFrame
     test_df: pd.DataFrame
@@ -111,3 +125,7 @@ class DecisionSummaryResponse:
 
 def dataclass_to_payload(data: Any) -> dict[str, Any]:
     return asdict(data)
+
+
+def dataframe_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
+    return df.to_dict(orient="records")

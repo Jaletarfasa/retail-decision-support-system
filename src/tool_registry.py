@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Callable
 
 import pandas as pd
@@ -20,6 +19,7 @@ from src.schemas import (
     ToolRequest,
     ToolResponse,
     ToolSpec,
+    dataframe_to_records,
 )
 
 
@@ -29,10 +29,23 @@ ToolHandler = Callable[[dict], dict]
 def _serialize_model_result(result: ModelResult) -> dict:
     return {
         "model_name": result.model_name,
-        "model_obj": result.model_obj,
         "metrics": result.metrics,
-        "preds": result.preds,
+        "preds": result.preds.tolist(),
     }
+
+
+def _deserialize_model_result(data: ModelResult | dict) -> ModelResult:
+    if isinstance(data, ModelResult):
+        return data
+    preds = data.get("preds", [])
+    if not isinstance(preds, pd.Series):
+        preds = pd.Series(preds, name="forecast_units")
+    return ModelResult(
+        model_name=data["model_name"],
+        model_obj=None,
+        metrics=data["metrics"],
+        preds=preds,
+    )
 
 
 def run_forecast_pipeline_tool(payload: dict) -> dict:
@@ -50,12 +63,14 @@ def run_forecast_pipeline_tool(payload: dict) -> dict:
 
 def compare_candidate_models_tool(payload: dict) -> dict:
     request = CompareCandidateModelsRequest(**payload)
-    comparison = build_model_comparison(request.model_results)
-    champion, challenger = select_champion_and_challenger(request.model_results)
+    model_results = [_deserialize_model_result(result) for result in request.model_results]
+    comparison = build_model_comparison(model_results)
+    champion, challenger = select_champion_and_challenger(model_results)
     return {
-        "comparison": comparison,
+        "comparison": dataframe_to_records(comparison),
         "champion_model": champion.model_name,
         "challenger_model": challenger.model_name if challenger else None,
+        "champion_metrics": champion.metrics,
     }
 
 
@@ -68,7 +83,7 @@ def get_inventory_actions_tool(payload: dict) -> dict:
         min_order_qty=request.min_order_qty,
         pack_size=request.pack_size,
     )
-    return {"inventory_actions": inventory_actions}
+    return {"inventory_actions": dataframe_to_records(inventory_actions)}
 
 
 def get_drift_status_tool(payload: dict) -> dict:
@@ -88,7 +103,7 @@ def get_drift_status_tool(payload: dict) -> dict:
             wmape_degradation_threshold=request.wmape_degradation_threshold,
             min_drifted_features=request.min_drifted_features,
         )
-    return {"drift_table": drift_table, "retraining_status": retraining_status}
+    return {"drift_table": dataframe_to_records(drift_table), "retraining_status": retraining_status}
 
 
 def generate_decision_summary_tool(payload: dict) -> dict:
@@ -99,7 +114,7 @@ def generate_decision_summary_tool(payload: dict) -> dict:
         champion_metrics=request.champion_metrics,
         retraining_status=request.retraining_status,
     )
-    return {"summary": summary}
+    return {"summary": dataframe_to_records(summary)}
 
 
 def get_tool_registry() -> dict[str, dict[str, ToolSpec | ToolHandler]]:
