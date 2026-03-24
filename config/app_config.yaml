@@ -1,0 +1,4 @@
+app_name: Retail Decision Support System
+app_mode: local
+app_version: 0.1.0
+artifact_root: artifacts

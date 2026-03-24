@@ -1,0 +1,8 @@
+doc_dir: data/reference
+retrieval_top_k: 3
+routes:
+  forecast: structured_forecast
+  inventory: structured_inventory
+  site: structured_site
+  monitoring: structured_monitoring
+  docs: document_retrieval

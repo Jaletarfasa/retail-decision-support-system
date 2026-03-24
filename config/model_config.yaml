@@ -1,0 +1,8 @@
+test_days: 30
+champion_metric: mae
+candidate_models:
+  - elasticnet
+  - random_forest
+  - extra_trees
+  - hist_gradient_boosting
+  - xgboost
