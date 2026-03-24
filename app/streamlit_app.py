@@ -1,22 +1,43 @@
 from __future__ import annotations
 
-import streamlit as st
-import pandas as pd
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import matplotlib.pyplot as plt
+import pandas as pd
+import streamlit as st
 
-from app.explainers import list_explainers, load_explainer_markup
+try:
+    from app.explainers import list_explainers, load_explainer_markup
+except ModuleNotFoundError:
+    from explainers import list_explainers, load_explainer_markup
 
+
+# -------------------------------------------------
+# Page config
+# -------------------------------------------------
 st.set_page_config(
     page_title="Retail Decision Support System",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # -------------------------------------------------
-# Custom styling
+# Paths
 # -------------------------------------------------
-st.markdown("""
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = APP_DIR.parent
+OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+DATA_DIR = PROJECT_ROOT / "data"
+ASSETS_DIR = PROJECT_ROOT / "assets" / "animations"
+
+
+# -------------------------------------------------
+# Styling
+# -------------------------------------------------
+st.markdown(
+    """
 <style>
     .stApp {
         background: linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%);
@@ -82,7 +103,7 @@ st.markdown("""
     .panel-box {
         background: white;
         border-radius: 18px;
-        padding: 1rem 1rem 1rem 1rem;
+        padding: 1rem;
         box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
         margin-bottom: 1rem;
         border: 1px solid #e5e7eb;
@@ -162,29 +183,168 @@ st.markdown("""
         box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
         margin-bottom: 0.8rem;
     }
+
+    .small-note {
+        color: #475569;
+        font-size: 0.9rem;
+    }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
 
 # -------------------------------------------------
 # Helpers
 # -------------------------------------------------
-def safe_read_csv(path: Path) -> pd.DataFrame | None:
-    if path.exists():
-        return pd.read_csv(path)
+@st.cache_data(show_spinner=False)
+def find_csv_files() -> List[Path]:
+    search_dirs = [OUTPUTS_DIR, ARTIFACTS_DIR, DATA_DIR]
+    csvs: List[Path] = []
+    for base in search_dirs:
+        if base.exists():
+            csvs.extend(base.rglob("*.csv"))
+    return sorted(set(csvs), key=lambda p: (p.parent.as_posix(), p.name.lower()))
+
+
+@st.cache_data(show_spinner=False)
+def load_all_csvs() -> Dict[str, pd.DataFrame]:
+    out: Dict[str, pd.DataFrame] = {}
+    for path in find_csv_files():
+        try:
+            out[str(path.relative_to(PROJECT_ROOT))] = pd.read_csv(path)
+        except Exception:
+            continue
+    return out
+
+
+def safe_pick_table(
+    tables: Dict[str, pd.DataFrame], keywords: List[str]
+) -> Optional[Tuple[str, pd.DataFrame]]:
+    for name, df in tables.items():
+        lower_name = name.lower()
+        if all(k.lower() in lower_name for k in keywords):
+            return name, df
+    for name, df in tables.items():
+        lower_name = name.lower()
+        if any(k.lower() in lower_name for k in keywords):
+            return name, df
     return None
 
-def get_metric(df: pd.DataFrame | None, metric_name: str, default="N/A"):
-    if df is None or df.empty:
-        return default
-    row = df.loc[df["metric"] == metric_name, "value"]
-    if row.empty:
-        return default
-    return row.iloc[0]
 
-def metric_card(label: str, value: str, color_class: str):
+def numeric_summary_card(df: pd.DataFrame) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    if df.empty:
+        return out
+
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    out["rows"] = float(len(df))
+    out["cols"] = float(df.shape[1])
+
+    if "forecast_units" in df.columns:
+        out["forecast_units_sum"] = float(
+            pd.to_numeric(df["forecast_units"], errors="coerce").fillna(0).sum()
+        )
+    if "recommended_reorder_qty" in df.columns:
+        out["reorder_sum"] = float(
+            pd.to_numeric(df["recommended_reorder_qty"], errors="coerce").fillna(0).sum()
+        )
+    if "store_id" in df.columns:
+        out["stores"] = float(df["store_id"].nunique())
+    if "sku_id" in df.columns:
+        out["skus"] = float(df["sku_id"].nunique())
+
+    if not out and numeric_cols:
+        first_col = numeric_cols[0]
+        out[f"{first_col}_sum"] = float(
+            pd.to_numeric(df[first_col], errors="coerce").fillna(0).sum()
+        )
+    return out
+
+
+def detect_model_table(
+    tables: Dict[str, pd.DataFrame],
+) -> Optional[Tuple[str, pd.DataFrame]]:
+    candidates = [
+        ["model"],
+        ["comparison"],
+        ["metrics"],
+        ["forecast", "model"],
+    ]
+    for keys in candidates:
+        hit = safe_pick_table(tables, keys)
+        if hit is not None:
+            return hit
+
+    for name, df in tables.items():
+        cols = {c.lower() for c in df.columns}
+        if {"model_name", "mae", "rmse"}.issubset(cols) or {
+            "model",
+            "mae",
+            "rmse",
+        }.issubset(cols):
+            return name, df
+    return None
+
+
+def detect_inventory_table(
+    tables: Dict[str, pd.DataFrame],
+) -> Optional[Tuple[str, pd.DataFrame]]:
+    candidates = [
+        ["inventory"],
+        ["reorder"],
+        ["stock"],
+    ]
+    for keys in candidates:
+        hit = safe_pick_table(tables, keys)
+        if hit is not None:
+            return hit
+
+    for name, df in tables.items():
+        cols = {c.lower() for c in df.columns}
+        if "recommended_reorder_qty" in cols:
+            return name, df
+    return None
+
+
+def detect_exec_summary_table(
+    tables: Dict[str, pd.DataFrame],
+) -> Optional[Tuple[str, pd.DataFrame]]:
+    candidates = [
+        ["executive", "summary"],
+        ["summary"],
+        ["dashboard"],
+    ]
+    for keys in candidates:
+        hit = safe_pick_table(tables, keys)
+        if hit is not None:
+            return hit
+    return None
+
+
+def format_kpi(value: float) -> str:
+    if abs(value) >= 1_000_000:
+        return f"{value:,.1f}M".replace(".0M", "M")
+    if abs(value) >= 1_000:
+        return f"{value:,.1f}K".replace(".0K", "K")
+    if float(value).is_integer():
+        return f"{int(value):,}"
+    return f"{value:,.2f}"
+
+
+def status_box(text: str, status: str = "good") -> None:
+    css_class = {
+        "good": "status-good",
+        "watch": "status-watch",
+        "alert": "status-alert",
+    }.get(status, "status-good")
+    st.markdown(f"<div class='{css_class}'>{text}</div>", unsafe_allow_html=True)
+
+
+def render_kpi_card(label: str, value: str, css_class: str) -> None:
     st.markdown(
         f"""
-        <div class="kpi-card {color_class}">
+        <div class="kpi-card {css_class}">
             <div class="kpi-label">{label}</div>
             <div class="kpi-value">{value}</div>
         </div>
@@ -192,401 +352,414 @@ def metric_card(label: str, value: str, color_class: str):
         unsafe_allow_html=True,
     )
 
-def callout(title: str, text: str):
+
+def make_bar_chart(
+    df: pd.DataFrame, category_col: str, value_col: str, title: str
+) -> None:
+    plot_df = df[[category_col, value_col]].copy()
+    plot_df[value_col] = pd.to_numeric(plot_df[value_col], errors="coerce")
+    plot_df = plot_df.dropna().sort_values(value_col, ascending=False).head(10)
+
+    if plot_df.empty:
+        st.info("No plottable data available.")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.bar(plot_df[category_col].astype(str), plot_df[value_col])
+    ax.set_title(title)
+    ax.set_xlabel(category_col)
+    ax.set_ylabel(value_col)
+    ax.tick_params(axis="x", rotation=45)
+    fig.tight_layout()
+    st.pyplot(fig)
+
+
+def render_explainers() -> None:
     st.markdown(
-        f"""
-        <div class="callout-box">
-            <div class="callout-title">{title}</div>
-            <div class="callout-text">{text}</div>
-        </div>
-        """,
+        "<div class='section-title'>Model and System Explainers</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div class='small-note'>Lightweight SVG explainers that describe the end-to-end system, model logic, and MCP-style orchestration.</div>",
         unsafe_allow_html=True,
     )
 
-def short_model_name(name: str) -> str:
-    mapping = {
-        "hist_gradient_boosting": "HGB",
-        "xgboost": "XGBoost",
-        "elasticnet": "ElasticNet",
-        "random_forest": "RF",
-        "extra_trees": "ExtraTrees",
-    }
-    return mapping.get(name, name)
-
-
-def render_explainer_gallery() -> None:
     explainers = list_explainers()
-    tabs = st.tabs([explainer.title for explainer in explainers])
-    for tab, explainer in zip(tabs, explainers):
-        with tab:
-            st.caption(explainer.caption)
-            st.markdown('<div class="explainer-frame">', unsafe_allow_html=True)
-            st.markdown(load_explainer_markup(explainer), unsafe_allow_html=True)
+    if not explainers:
+        st.warning("No explainer assets found.")
+        return
+
+    normalized = []
+
+    # Normalize while preserving the original object for loading
+    if isinstance(explainers, dict):
+        for key, value in explainers.items():
+            if isinstance(value, dict):
+                normalized.append(
+                    {
+                        "key": str(value.get("key", key)),
+                        "title": str(value.get("title", key)),
+                        "obj": value,
+                    }
+                )
+            else:
+                normalized.append(
+                    {
+                        "key": str(key),
+                        "title": str(getattr(value, "title", key)),
+                        "obj": value,
+                    }
+                )
+    else:
+        for item in explainers:
+            if isinstance(item, str):
+                normalized.append(
+                    {
+                        "key": item,
+                        "title": item,
+                        "obj": item,
+                    }
+                )
+            elif isinstance(item, dict):
+                normalized.append(
+                    {
+                        "key": str(item.get("key", "unknown")),
+                        "title": str(item.get("title", item.get("key", "unknown"))),
+                        "obj": item,
+                    }
+                )
+            else:
+                key = str(getattr(item, "key", str(item)))
+                title = str(getattr(item, "title", key))
+                normalized.append(
+                    {
+                        "key": key,
+                        "title": title,
+                        "obj": item,
+                    }
+                )
+
+    keys = [x["key"] for x in normalized]
+    titles = {x["key"]: x["title"] for x in normalized}
+    objects = {x["key"]: x["obj"] for x in normalized}
+
+    selected = st.selectbox(
+        "Choose explainer",
+        keys,
+        index=0,
+        format_func=lambda x: titles.get(x, x),
+    )
+
+    left, right = st.columns([1.3, 1.7])
+
+    with left:
+        st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+        st.markdown("**Available explainers**")
+        for item in normalized:
+            badge_class = "badge-blue" if item["key"] == selected else "badge-green"
+            st.markdown(
+                f"<span class='mini-badge {badge_class}'>{item['title']}</span>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown("<div class='explainer-frame'>", unsafe_allow_html=True)
+        try:
+            markup = load_explainer_markup(objects[selected])
+        except Exception as e:
+            st.error(f"Failed to load explainer: {e}")
+            markup = None
+
+        if markup:
+            st.markdown(markup, unsafe_allow_html=True)
+        else:
+            st.warning("Unable to load the selected explainer asset.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------
+# Hero
+# -------------------------------------------------
+st.markdown(
+    """
+<div class="hero-box">
+    <div class="main-title">Retail Decision Support System</div>
+    <div class="sub-title">
+        End-to-end retail analytics with classical ML, deep tabular models, lightweight MCP-style orchestration,
+        explainable visuals, and demo-safe execution.
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# -------------------------------------------------
+# Sidebar
+# -------------------------------------------------
+st.sidebar.title("Navigation")
+page = st.sidebar.radio(
+    "Choose a view",
+    [
+        "Overview",
+        "Model Comparison",
+        "Inventory & Actions",
+        "Data Browser",
+        "Explainers",
+    ],
+)
+
+tables = load_all_csvs()
+model_hit = detect_model_table(tables)
+inventory_hit = detect_inventory_table(tables)
+summary_hit = detect_exec_summary_table(tables)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Project folders**")
+st.sidebar.caption(f"Outputs: {OUTPUTS_DIR}")
+st.sidebar.caption(f"Artifacts: {ARTIFACTS_DIR}")
+st.sidebar.caption(f"Assets: {ASSETS_DIR}")
+
+# -------------------------------------------------
+# Overview
+# -------------------------------------------------
+if page == "Overview":
+    st.markdown(
+        "<div class='section-title'>Executive Overview</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not tables:
+        status_box(
+            "No CSV outputs were found yet. Run the demo pipeline first, then refresh the app.",
+            "watch",
+        )
+        st.info("Try running the demo pipeline before launching the dashboard.")
+    else:
+        status_box(
+            "Dashboard loaded successfully. Data assets were discovered and summarized.",
+            "good",
+        )
+
+        kpi_cols = st.columns(4)
+        kpi_payloads: List[Tuple[str, str, str]] = []
+
+        if summary_hit is not None:
+            _, summary_df = summary_hit
+            summary_stats = numeric_summary_card(summary_df)
+            for idx, (k, v) in enumerate(summary_stats.items()):
+                if idx >= 4:
+                    break
+                kpi_payloads.append(
+                    (
+                        k.replace("_", " ").title(),
+                        format_kpi(v),
+                        ["blue-card", "green-card", "amber-card", "purple-card"][idx],
+                    )
+                )
+
+        if not kpi_payloads and inventory_hit is not None:
+            _, inv_df = inventory_hit
+            inv_stats = numeric_summary_card(inv_df)
+            for idx, (k, v) in enumerate(inv_stats.items()):
+                if idx >= 4:
+                    break
+                kpi_payloads.append(
+                    (
+                        k.replace("_", " ").title(),
+                        format_kpi(v),
+                        ["blue-card", "green-card", "amber-card", "purple-card"][idx],
+                    )
+                )
+
+        if not kpi_payloads and model_hit is not None:
+            _, model_df = model_hit
+            kpi_payloads.append(
+                ("Model Rows", format_kpi(float(len(model_df))), "blue-card")
+            )
+
+        while len(kpi_payloads) < 4:
+            kpi_payloads.append((f"Metric {len(kpi_payloads)+1}", "N/A", "slate-card"))
+
+        for col, (label, value, css) in zip(kpi_cols, kpi_payloads):
+            with col:
+                render_kpi_card(label, value, css)
+
+        left, right = st.columns([1.2, 1.8])
+
+        with left:
+            st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+            st.markdown("**Architecture highlights**")
+            st.markdown(
+                """
+- Classical ML candidate models
+- Deep tabular models: MLP and entity embeddings
+- MCP-style schemas, tool registry, and controller
+- Streamlit dashboard with explainers
+- Demo-safe execution mode and smoke tests
+"""
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with right:
+            st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+            st.markdown("**Discovered tables**")
+            discovered = pd.DataFrame(
+                {
+                    "table": list(tables.keys()),
+                    "rows": [len(df) for df in tables.values()],
+                    "cols": [df.shape[1] for df in tables.values()],
+                }
+            )
+            st.dataframe(discovered, use_container_width=True, hide_index=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
-# Run selection
+# Model Comparison
 # -------------------------------------------------
-run_dir = Path("artifacts/runs")
-available_runs = sorted([p.name for p in run_dir.glob("run_*")], reverse=True)
-
-if not available_runs:
-    st.warning("No runs found.")
-    st.stop()
-
-st.markdown("""
-<div class="hero-box">
-    <div class="main-title">Retail Decision Support System</div>
-    <div class="sub-title">Forecasting, business actions, monitoring, and retraining review in one interface</div>
-</div>
-""", unsafe_allow_html=True)
-
-selected_run = st.selectbox("Select run", available_runs)
-base = run_dir / selected_run
-
-# -------------------------------------------------
-# Load outputs
-# -------------------------------------------------
-exec_df = safe_read_csv(base / "dashboard" / "dashboard_executive_summary.csv")
-model_df = safe_read_csv(base / "selection" / "model_comparison.csv")
-store_df = safe_read_csv(base / "dashboard" / "dashboard_store_forecast.csv")
-dept_df = safe_read_csv(base / "dashboard" / "dashboard_department_forecast.csv")
-promo_df = safe_read_csv(base / "promotion" / "promotion_analytics.csv")
-inv_df = safe_read_csv(base / "inventory" / "inventory_recommendations.csv")
-site_df = safe_read_csv(base / "optimization" / "optimized_site_selection.csv")
-drift_df = safe_read_csv(base / "monitoring" / "drift_monitor.csv")
-audit_df = safe_read_csv(base / "retraining" / "retraining_audit.csv")
-
-# -------------------------------------------------
-# Sidebar slicers
-# -------------------------------------------------
-st.sidebar.header("Filters")
-
-top_n = st.sidebar.slider("Top N rows", min_value=5, max_value=50, value=10, step=5)
-
-selected_sites_only = st.sidebar.checkbox("Selected sites only", value=False)
-
-region_options = []
-if site_df is not None and "region" in site_df.columns:
-    region_options = sorted(site_df["region"].dropna().astype(str).unique().tolist())
-
-region_filter = st.sidebar.multiselect("Region", region_options, default=region_options)
-
-store_options = []
-if store_df is not None and "store_id" in store_df.columns:
-    store_options = sorted(store_df["store_id"].dropna().tolist())
-
-store_filter = st.sidebar.multiselect("Store ID", store_options, default=[])
-
-dept_options = []
-if dept_df is not None and "department" in dept_df.columns:
-    dept_options = sorted(dept_df["department"].dropna().astype(str).unique().tolist())
-
-dept_filter = st.sidebar.multiselect("Department", dept_options, default=dept_options)
-
-# -------------------------------------------------
-# Apply filters
-# -------------------------------------------------
-if site_df is not None and not site_df.empty:
-    if region_filter:
-        site_df = site_df[site_df["region"].astype(str).isin(region_filter)]
-    if selected_sites_only and "selected_flag" in site_df.columns:
-        site_df = site_df[site_df["selected_flag"] == 1]
-
-if store_df is not None and not store_df.empty and store_filter:
-    store_df = store_df[store_df["store_id"].isin(store_filter)]
-
-if dept_df is not None and not dept_df.empty and dept_filter:
-    dept_df = dept_df[dept_df["department"].astype(str).isin(dept_filter)]
-
-if inv_df is not None and not inv_df.empty and store_filter and "store_id" in inv_df.columns:
-    inv_df = inv_df[inv_df["store_id"].isin(store_filter)]
-
-# -------------------------------------------------
-# Extract summary values
-# -------------------------------------------------
-champion_model = str(get_metric(exec_df, "champion_model", "N/A"))
-challenger_model = str(get_metric(exec_df, "challenger_model", "N/A"))
-champion_mae = get_metric(exec_df, "champion_mae")
-champion_wmape = get_metric(exec_df, "champion_wmape")
-watch_status = str(get_metric(exec_df, "watch_status", "N/A"))
-retrain_flag = str(get_metric(exec_df, "retraining_recommended", "N/A"))
-
-champion_display = short_model_name(champion_model)
-challenger_display = short_model_name(challenger_model)
-
-try:
-    champion_mae_display = f"{float(champion_mae):.3f}"
-except Exception:
-    champion_mae_display = str(champion_mae)
-
-try:
-    champion_wmape_display = f"{float(champion_wmape):.3f}"
-except Exception:
-    champion_wmape_display = str(champion_wmape)
-
-promo_lift = None
-promo_margin_lift = None
-if promo_df is not None and not promo_df.empty:
-    try:
-        promo_lift = float(promo_df.loc[promo_df["metric"] == "promo_lift", "value"].iloc[0])
-    except Exception:
-        pass
-    try:
-        promo_margin_lift = float(promo_df.loc[promo_df["metric"] == "promo_margin_lift", "value"].iloc[0])
-    except Exception:
-        pass
-
-selected_sites = None
-if site_df is not None and not site_df.empty and "selected_flag" in site_df.columns:
-    selected_sites = int(site_df["selected_flag"].sum())
-
-top_reorders = None
-if inv_df is not None and not inv_df.empty and "recommended_reorder_qty" in inv_df.columns:
-    top_reorders = int((inv_df["recommended_reorder_qty"] > 0).sum())
-
-drifted_features = None
-if drift_df is not None and not drift_df.empty and "drift" in drift_df.columns:
-    drifted_features = int(drift_df["drift"].sum())
-
-top_site_region = "N/A"
-top_site_id = "N/A"
-if site_df is not None and not site_df.empty:
-    ranked_sites = site_df.sort_values("projected_value_index", ascending=False)
-    if "region" in ranked_sites.columns:
-        top_site_region = str(ranked_sites.iloc[0]["region"])
-    if "candidate_site_id" in ranked_sites.columns:
-        top_site_id = str(ranked_sites.iloc[0]["candidate_site_id"])
-
-# -------------------------------------------------
-# Executive snapshot
-# -------------------------------------------------
-st.markdown('<div class="section-title">Executive Snapshot</div>', unsafe_allow_html=True)
-
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-with c1:
-    metric_card("Champion", champion_display, "blue-card")
-with c2:
-    metric_card("Challenger", challenger_display, "purple-card")
-with c3:
-    metric_card("MAE", champion_mae_display, "green-card")
-with c4:
-    metric_card("WMAPE", champion_wmape_display, "amber-card")
-with c5:
-    metric_card("Watch Status", watch_status, "slate-card")
-with c6:
-    metric_card("Retrain?", retrain_flag, "rose-card")
-
-if str(retrain_flag) == "1":
-    st.markdown('<div class="status-alert">Retraining review recommended.</div>', unsafe_allow_html=True)
-elif str(watch_status).lower() == "watch":
-    st.markdown('<div class="status-watch">System is in WATCH mode. Monitor before retraining.</div>', unsafe_allow_html=True)
-else:
-    st.markdown('<div class="status-good">System stable. No immediate retraining action flagged.</div>', unsafe_allow_html=True)
-
-# -------------------------------------------------
-# Decision callouts
-# -------------------------------------------------
-st.markdown('<div class="section-title">Decision Callouts</div>', unsafe_allow_html=True)
-dc1, dc2 = st.columns(2)
-
-with dc1:
-    callout(
-        "Forecast Decision",
-        f"{champion_display} remains the current champion, with {challenger_display} retained as challenger for future review."
-    )
-    callout(
-        "Inventory Decision",
-        f"{top_reorders if top_reorders is not None else 'N/A'} reorder lines are currently flagged from forecast-to-stock translation."
+elif page == "Model Comparison":
+    st.markdown(
+        "<div class='section-title'>Model Comparison</div>",
+        unsafe_allow_html=True,
     )
 
-with dc2:
-    callout(
-        "Site Decision",
-        f"{selected_sites if selected_sites is not None else 'N/A'} sites are selected under the current optimization constraint. Highest projected value site: {top_site_id} in {top_site_region}."
-    )
-    callout(
-        "Monitoring Decision",
-        f"{drifted_features if drifted_features is not None else 'N/A'} monitored features drifted; current system status remains {watch_status}."
-    )
+    if model_hit is None:
+        status_box(
+            "No model comparison table was detected in outputs/artifacts/data.",
+            "watch",
+        )
+        st.info("Run the pipeline first or verify that model metrics CSV outputs exist.")
+    else:
+        model_name, model_df = model_hit
+        st.caption(f"Source: {model_name}")
 
-st.markdown('<div class="section-title">Monitoring Snapshot</div>', unsafe_allow_html=True)
-st.markdown(
-    f"""
-    <span class="mini-badge badge-blue">Drifted Features: {drifted_features if drifted_features is not None else 'N/A'}</span>
-    <span class="mini-badge badge-amber">Status: {watch_status}</span>
-    <span class="mini-badge {'badge-rose' if str(retrain_flag) == '1' else 'badge-green'}">Retraining: {'Yes' if str(retrain_flag) == '1' else 'No'}</span>
-    """,
-    unsafe_allow_html=True,
-)
+        st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+        st.dataframe(model_df, use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-left, right = st.columns([1, 1])
+        candidate_col = None
+        for col in ["model_name", "model", "candidate"]:
+            if col in model_df.columns:
+                candidate_col = col
+                break
 
-with left:
-    st.markdown('<div class="section-title">Executive Summary</div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    with st.expander("Show raw executive summary table"):
-        if exec_df is not None:
-            st.dataframe(exec_df, use_container_width=True, height=240)
+        metric_col = None
+        for col in ["rmse", "mae", "wmape", "bias", "r2"]:
+            if col in model_df.columns:
+                metric_col = col
+                break
+
+        if candidate_col and metric_col:
+            make_bar_chart(
+                model_df,
+                candidate_col,
+                metric_col,
+                f"Top models by {metric_col.upper()}",
+            )
         else:
-            st.info("Executive summary not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.info("Model table found, but no standard plotting columns were detected.")
 
-with right:
-    st.markdown('<div class="section-title">Model Comparison</div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    if model_df is not None and not model_df.empty:
-        model_chart = model_df.sort_values("mae").copy()
-        colors = []
-        for m in model_chart["model_name"]:
-            if m == champion_model:
-                colors.append("#2563eb")
-            elif m == challenger_model:
-                colors.append("#7c3aed")
-            else:
-                colors.append("#94a3b8")
-        fig, ax = plt.subplots(figsize=(7, 3.5))
-        ax.bar([short_model_name(x) for x in model_chart["model_name"]], model_chart["mae"], color=colors)
-        ax.set_title("Model MAE Comparison")
-        ax.set_ylabel("MAE")
-        ax.tick_params(axis="x", rotation=20)
-        st.pyplot(fig, clear_figure=True)
-    else:
-        st.info("Model comparison not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="section-title">Business Decision Snapshot</div>', unsafe_allow_html=True)
-b1, b2, b3, b4 = st.columns(4)
-
-with b1:
-    metric_card("Promo Lift", f"{promo_lift:.2%}" if promo_lift is not None else "N/A", "green-card")
-with b2:
-    metric_card("Promo Margin Lift", f"{promo_margin_lift:.2%}" if promo_margin_lift is not None else "N/A", "blue-card")
-with b3:
-    metric_card("Selected Sites", str(selected_sites) if selected_sites is not None else "N/A", "purple-card")
-with b4:
-    metric_card("Reorder Lines", str(top_reorders) if top_reorders is not None else "N/A", "amber-card")
-
-st.markdown('<div class="section-title">Forecast Views</div>', unsafe_allow_html=True)
-f1, f2 = st.columns(2)
-
-with f1:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Department Forecast Chart**")
-    if dept_df is not None and not dept_df.empty:
-        dept_chart = dept_df.sort_values("forecast_units", ascending=False).head(top_n).copy()
-        fig, ax = plt.subplots(figsize=(7, 3.5))
-        ax.bar(dept_chart["department"], dept_chart["forecast_units"])
-        ax.set_title("Forecast Units by Department")
-        ax.set_ylabel("Forecast Units")
-        ax.tick_params(axis="x", rotation=25)
-        st.pyplot(fig, clear_figure=True)
-    else:
-        st.info("Department forecast not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with f2:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Top Store Errors**")
-    if store_df is not None and not store_df.empty:
-        show_cols = [c for c in ["store_id", "forecast_units", "actual_units", "forecast_error", "abs_error"] if c in store_df.columns]
-        top_err = store_df[show_cols].sort_values("abs_error", ascending=False).head(top_n)
-        st.dataframe(top_err, use_container_width=True, height=320)
-    else:
-        st.info("Store forecast not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="section-title">Inventory Recommendations</div>', unsafe_allow_html=True)
-i1, i2 = st.columns(2)
-
-with i1:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Top Reorder Quantities**")
-    if inv_df is not None and not inv_df.empty:
-        chart_df = inv_df.sort_values("recommended_reorder_qty", ascending=False).head(top_n).copy()
-        chart_df["label"] = chart_df["store_id"].astype(str) + "-" + chart_df["sku_id"].astype(str)
-        fig, ax = plt.subplots(figsize=(7, 3.5))
-        ax.bar(chart_df["label"], chart_df["recommended_reorder_qty"])
-        ax.set_title("Top Reorder Lines")
-        ax.set_ylabel("Recommended Reorder Qty")
-        ax.tick_params(axis="x", rotation=45)
-        st.pyplot(fig, clear_figure=True)
-    else:
-        st.info("Inventory recommendations not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with i2:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Top Inventory Table**")
-    if inv_df is not None and not inv_df.empty:
-        show_cols = [c for c in ["store_id", "sku_id", "forecast_units", "on_hand_units", "safety_stock", "recommended_reorder_qty"] if c in inv_df.columns]
-        st.dataframe(
-            inv_df[show_cols].sort_values("recommended_reorder_qty", ascending=False).head(top_n),
-            use_container_width=True,
-            height=320
+        st.markdown("<div class='callout-box'>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='callout-title'>Interpretation</div>",
+            unsafe_allow_html=True,
         )
-    else:
-        st.info("Inventory recommendations not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="section-title">Optimized Site Selection</div>', unsafe_allow_html=True)
-s1, s2 = st.columns(2)
-
-with s1:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Top Site Scores**")
-    if site_df is not None and not site_df.empty:
-        chart_df = site_df.sort_values("projected_value_index", ascending=False).head(top_n).copy()
-        chart_df["label"] = chart_df["candidate_site_id"].astype(str)
-        colors = ["#7c3aed" if int(flag) == 1 else "#cbd5e1" for flag in chart_df["selected_flag"]]
-        fig, ax = plt.subplots(figsize=(7, 3.5))
-        ax.bar(chart_df["label"], chart_df["projected_value_index"], color=colors)
-        ax.set_title("Projected Value Index by Site")
-        ax.set_ylabel("Projected Value Index")
-        ax.set_xlabel("Candidate Site ID")
-        st.pyplot(fig, clear_figure=True)
-    else:
-        st.info("Optimized site selection not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with s2:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Selected Sites Table**")
-    if site_df is not None and not site_df.empty:
-        show_cols = [c for c in ["candidate_site_id", "region", "projected_value_index", "rent_cost", "selected_flag"] if c in site_df.columns]
-        st.dataframe(
-            site_df[show_cols].sort_values("projected_value_index", ascending=False).head(top_n),
-            use_container_width=True,
-            height=320
+        st.markdown(
+            "<div class='callout-text'>Use this section to compare classical ML and deep tabular candidates under the same metrics framework.</div>",
+            unsafe_allow_html=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------
+# Inventory & Actions
+# -------------------------------------------------
+elif page == "Inventory & Actions":
+    st.markdown(
+        "<div class='section-title'>Inventory & Actions</div>",
+        unsafe_allow_html=True,
+    )
+
+    if inventory_hit is None:
+        status_box("No inventory or reorder table was detected.", "watch")
+        st.info("Run the pipeline or verify that inventory outputs are available.")
     else:
-        st.info("Optimized site selection not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        inventory_name, inventory_df = inventory_hit
+        st.caption(f"Source: {inventory_name}")
 
-st.markdown('<div class="section-title">Monitoring and Retraining</div>', unsafe_allow_html=True)
-m1, m2 = st.columns(2)
+        left, right = st.columns([1.2, 1.8])
 
-with m1:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Drift Monitor**")
-    if drift_df is not None:
-        st.dataframe(drift_df.sort_values("ks_stat", ascending=False), use_container_width=True, height=260)
+        with left:
+            stats = numeric_summary_card(inventory_df)
+            st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+            st.markdown("**Inventory KPIs**")
+            for key, val in stats.items():
+                st.markdown(
+                    f"- **{key.replace('_', ' ').title()}**: {format_kpi(val)}"
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with right:
+            st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+            st.dataframe(
+                inventory_df.head(50), use_container_width=True, hide_index=True
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        if "recommended_reorder_qty" in inventory_df.columns:
+            category_col = None
+            for c in ["sku_id", "store_id", "product", "category"]:
+                if c in inventory_df.columns:
+                    category_col = c
+                    break
+            if category_col is not None:
+                make_bar_chart(
+                    inventory_df,
+                    category_col,
+                    "recommended_reorder_qty",
+                    "Top reorder recommendations",
+                )
+
+# -------------------------------------------------
+# Data Browser
+# -------------------------------------------------
+elif page == "Data Browser":
+    st.markdown(
+        "<div class='section-title'>Data Browser</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not tables:
+        st.info("No CSV files found in outputs/, artifacts/, or data/.")
     else:
-        st.info("Drift monitor not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        selected_table = st.selectbox("Select a discovered table", list(tables.keys()))
+        df = tables[selected_table]
 
-with m2:
-    st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-    st.markdown("**Retraining Audit**")
-    if audit_df is not None:
-        st.dataframe(audit_df, use_container_width=True, height=260)
-    else:
-        st.info("Retraining audit not found.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+        st.markdown(f"**Preview: {selected_table}**")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown('<div class="section-title">Model and System Explainers</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="panel-box">Lightweight explainers summarize how the current forecasting, interaction learning, deep models, and MCP-style orchestration fit together.</div>',
-    unsafe_allow_html=True,
+        st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+        st.markdown("**Column types**")
+        dtype_df = pd.DataFrame(
+            {
+                "column": df.columns,
+                "dtype": [str(t) for t in df.dtypes],
+                "missing": [int(df[c].isna().sum()) for c in df.columns],
+            }
+        )
+        st.dataframe(dtype_df, use_container_width=True, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------
+# Explainers
+# -------------------------------------------------
+elif page == "Explainers":
+    render_explainers()
+
+# -------------------------------------------------
+# Footer
+# -------------------------------------------------
+st.markdown("---")
+st.caption(
+    "Retail Decision Support System • Classical ML + Deep Tabular Models • Lightweight MCP-style Orchestration • Explainable Dashboard"
 )
-render_explainer_gallery()
