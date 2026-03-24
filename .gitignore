@@ -41,3 +41,6 @@ data/interim/
 
 # Streamlit
 .streamlit/secrets.toml
+
+.pytest_tmp/
+pytest-cache-files-*/
