@@ -1,0 +1,2 @@
+champion_model,challenger_model,drifted_features,current_wmape,baseline_wmape,wmape_degradation,retraining_recommended,status
+elasticnet,mlp,0,0.7253762356080838,0.7153762356080838,0.010000000000000009,0,Watch

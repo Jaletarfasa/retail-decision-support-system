@@ -47,3 +47,6 @@ pytest-cache-files-*/
 
 .pytest_tmp/
 pytest-cache-files-*/
+
+!artifacts/demo/
+!artifacts/demo/**
