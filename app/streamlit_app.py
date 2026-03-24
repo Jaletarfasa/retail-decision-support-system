@@ -12,7 +12,11 @@ try:
 except ModuleNotFoundError:
     from explainers import list_explainers, load_explainer_markup
 
+from src.orchestrator import run_pipeline
 
+if "demo_ran" not in st.session_state:
+    run_pipeline(mode="demo")
+    st.session_state["demo_ran"] = True
 # -------------------------------------------------
 # Page config
 # -------------------------------------------------
@@ -29,6 +33,7 @@ APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+DEMO_DIR = ARTIFACTS_DIR / "demo"
 DATA_DIR = PROJECT_ROOT / "data"
 ASSETS_DIR = PROJECT_ROOT / "assets" / "animations"
 
@@ -199,12 +204,17 @@ st.markdown(
 # -------------------------------------------------
 @st.cache_data(show_spinner=False)
 def find_csv_files() -> List[Path]:
-    search_dirs = [OUTPUTS_DIR, ARTIFACTS_DIR, DATA_DIR]
+    if not DEMO_DIR.exists():
+        return []
+
     csvs: List[Path] = []
-    for base in search_dirs:
-        if base.exists():
-            csvs.extend(base.rglob("*.csv"))
-    return sorted(set(csvs), key=lambda p: (p.parent.as_posix(), p.name.lower()))
+    for path in DEMO_DIR.rglob("*.csv"):
+        # Skip raw source files in the cloud demo
+        if "source" in path.parts:
+            continue
+        csvs.append(path)
+
+    return sorted(csvs, key=lambda p: (p.parent.as_posix(), p.name.lower()))
 
 
 @st.cache_data(show_spinner=False)
