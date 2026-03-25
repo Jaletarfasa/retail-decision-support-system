@@ -1,0 +1,9 @@
+metric,value
+drift_detected,1
+num_drifted_features,4
+max_ks_stat,0.08556834957189252
+current_wmape,0.2119774701690027
+reference_wmape,0.21302451943126682
+wmape_degradation,-0.004915158428989936
+retraining_recommended,0
+watch_status,Watch

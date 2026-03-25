@@ -1,0 +1,9 @@
+metric,value
+triggered,False
+trigger_reason,
+retrained_model_name,
+candidate_mae,nan
+current_champion_mae,2.857676956866885
+relative_improvement,nan
+promoted,False
+deployment_action,No retraining triggered
