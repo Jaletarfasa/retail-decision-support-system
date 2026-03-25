@@ -1,0 +1,18 @@
+layer,maturity,honest_note
+Forecasting,Implemented,Real local multi-model training and scoring
+Feature engineering,Implemented,Real grouped time-series and store-date features
+Assortment health,Implemented,Real retail diagnostics
+Promotion analytics,Implemented,Real local lift and margin-lift summary
+Inventory recommendations,Implemented,Real reorder heuristic with business-rule overlays
+Site selection,Implemented (simplified),Real but simplified scoring model
+Optimization,Implemented (simplified),Real but simplified budget-constrained optimization
+Drift monitoring,Implemented (partial productionization),"Real local monitoring, not enterprise monitoring stack"
+Automated retraining trigger,Implemented (prototype policy-driven),Retrain-compare-promote logic implemented locally
+RAG retrieval,Implemented locally,Real local TF-IDF retrieval
+Agent routing,Implemented locally / prototype-grade,"Real local routing logic, not enterprise agent platform"
+Dashboarding,Partial,"Usable local Streamlit dashboard, not enterprise BI product"
+MLflow tracking,Implemented locally with SQLite backend,SQLite-backed tracking implemented locally
+Model registry,Partial / local registry pattern,"Local model versioning pattern, not enterprise registry ops"
+Azure / Databricks orchestration,Placeholder only,Not implemented in this prototype
+Enterprise auth / governance,Placeholder only,Not implemented in this prototype
+BI semantic layer,Placeholder only,Not implemented in this prototype
