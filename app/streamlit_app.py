@@ -511,6 +511,126 @@ def render_kpi_row(items: List[tuple[str, str, str]]) -> None:
         with col:
             render_kpi_card(label, value, css_class)
 
+def render_decision_summary(title: str, bullets: List[str]) -> None:
+    if not bullets:
+        return
+    items = "".join([f"<li>{b}</li>" for b in bullets])
+    st.markdown(
+        f"""
+        <div class="panel-box">
+            <div class="filter-chip-title">{title}</div>
+            <ul style="margin-top: 0.4rem; padding-left: 1.2rem;">
+                {items}
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def summarize_model_page(df: pd.DataFrame) -> List[str]:
+    if df.empty:
+        return ["No model rows available under the current filters."]
+
+    bullets = [f"{len(df)} model rows are currently in scope."]
+    if "mae" in df.columns:
+        mae_series = pd.to_numeric(df["mae"], errors="coerce").dropna()
+        if not mae_series.empty:
+            bullets.append(f"Best observed MAE is {format_kpi(float(mae_series.min()))}.")
+    if "model_name" in df.columns and "mae" in df.columns:
+        tmp = df.copy()
+        tmp["mae_num"] = pd.to_numeric(tmp["mae"], errors="coerce")
+        tmp = tmp.dropna(subset=["mae_num"])
+        if not tmp.empty:
+            best_model = str(tmp.sort_values("mae_num").iloc[0]["model_name"])
+            bullets.append(f"Top-ranked model under the current filters is {best_model}.")
+    return bullets
+
+
+def summarize_forecast_page(
+    store_df: pd.DataFrame,
+    dept_df: pd.DataFrame,
+    region_df: pd.DataFrame,
+    brand_df: pd.DataFrame,
+) -> List[str]:
+    bullets: List[str] = []
+
+    def add_top(df: pd.DataFrame, label_col: str, value_col: str, label_name: str) -> None:
+        if df.empty or label_col not in df.columns or value_col not in df.columns:
+            return
+        tmp = df[[label_col, value_col]].copy()
+        tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
+        tmp = tmp.dropna().sort_values(value_col, ascending=False)
+        if not tmp.empty:
+            top_label = str(tmp.iloc[0][label_col])
+            top_value = format_kpi(float(tmp.iloc[0][value_col]))
+            bullets.append(f"Highest {label_name} forecast is {top_label} with {top_value} units.")
+
+    add_top(store_df, "store_id", "forecast_units", "store")
+    add_top(region_df, "region", "forecast_units", "region")
+    add_top(dept_df, "department" if "department" in dept_df.columns else "category", "forecast_units", "department")
+    add_top(brand_df, "brand", "forecast_units", "brand")
+
+    if not bullets:
+        bullets.append("No forecast rows are available under the current filters.")
+    return bullets
+
+
+def summarize_inventory_page(reorder_df: pd.DataFrame, site_df: pd.DataFrame) -> List[str]:
+    bullets: List[str] = []
+
+    if not reorder_df.empty and "recommended_reorder_qty" in reorder_df.columns:
+        tmp = reorder_df.copy()
+        tmp["recommended_reorder_qty"] = pd.to_numeric(tmp["recommended_reorder_qty"], errors="coerce")
+        tmp = tmp.dropna(subset=["recommended_reorder_qty"]).sort_values("recommended_reorder_qty", ascending=False)
+        if not tmp.empty:
+            label_col = "sku_id" if "sku_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else None)
+            if label_col is not None:
+                bullets.append(
+                    f"Top reorder priority is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0]['recommended_reorder_qty']))} recommended units."
+                )
+
+    if not site_df.empty:
+        sort_col = "projected_value_index" if "projected_value_index" in site_df.columns else None
+        if sort_col is not None:
+            tmp = site_df.copy()
+            tmp[sort_col] = pd.to_numeric(tmp[sort_col], errors="coerce")
+            tmp = tmp.dropna(subset=[sort_col]).sort_values(sort_col, ascending=False)
+            if not tmp.empty:
+                label_col = "site_id" if "site_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else ("region" if "region" in tmp.columns else None))
+                if label_col is not None:
+                    bullets.append(
+                        f"Top site opportunity is {tmp.iloc[0][label_col]} with projected value {format_kpi(float(tmp.iloc[0][sort_col]))}."
+                    )
+
+    if not bullets:
+        bullets.append("No inventory or site-selection rows are available under the current filters.")
+    return bullets
+
+
+def summarize_monitoring_page(
+    drift_df: pd.DataFrame,
+    retrain_df: pd.DataFrame,
+    audit_df: pd.DataFrame,
+) -> List[str]:
+    bullets: List[str] = []
+
+    if not drift_df.empty:
+        bullets.append(f"Drift monitor currently shows {len(drift_df)} rows in scope.")
+        if "psi" in drift_df.columns:
+            psi_series = pd.to_numeric(drift_df["psi"], errors="coerce").dropna()
+            if not psi_series.empty:
+                bullets.append(f"Highest PSI currently visible is {format_kpi(float(psi_series.max()))}.")
+
+    if not retrain_df.empty:
+        bullets.append(f"Retraining status currently has {len(retrain_df)} rows in scope.")
+
+    if not audit_df.empty:
+        bullets.append(f"Retraining audit currently has {len(audit_df)} rows in scope.")
+
+    if not bullets:
+        bullets.append("No monitoring rows are available under the current filters.")
+    return bullets
 
 def build_forecast_kpis(df: pd.DataFrame, label_prefix: str) -> List[tuple[str, str, str]]:
     if df.empty:
@@ -988,11 +1108,12 @@ elif page == "Model Comparison":
     best_mae = "N/A"
     if not model_df_f.empty and "mae" in model_df_f.columns:
         best_mae = format_kpi(float(pd.to_numeric(model_df_f["mae"], errors="coerce").min()))
-    render_kpi_row([
+        render_kpi_row([
         ("Model Rows", model_rows, "blue-card"),
         ("Best MAE", best_mae, "green-card"),
     ])
 
+    render_decision_summary("Decision Summary", summarize_model_page(model_df_f))
     render_dataframe_panel("Model Comparison", model_df_f, sort_col="mae", ascending=True)
 
 elif page == "Forecasts":
@@ -1003,6 +1124,10 @@ elif page == "Forecasts":
     render_kpi_row(build_forecast_kpis(region_df_f, "Region"))
     render_kpi_row(build_forecast_kpis(dept_df_f, "Department"))
     render_kpi_row(build_forecast_kpis(brand_df_f, "Brand"))
+    render_decision_summary(
+        "Decision Summary",
+        summarize_forecast_page(store_df_f, dept_df_f, region_df_f, brand_df_f),
+    )
 
     col1, col2 = st.columns(2)
 
@@ -1044,6 +1169,10 @@ elif page == "Inventory & Actions":
     st.markdown("<div class='section-title'>Inventory & Actions</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
     render_kpi_row(build_inventory_kpis(reorder_df_f, site_df_f))
+    render_decision_summary(
+        "Decision Summary",
+        summarize_inventory_page(reorder_df_f, site_df_f),
+    )
 
     if reorder_df_f.empty:
         render_empty_state("Inventory Recommendations", current_filters)
@@ -1074,6 +1203,10 @@ elif page == "Monitoring":
     st.markdown("<div class='section-title'>Monitoring</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
     render_kpi_row(build_monitoring_kpis(drift_df_f, retrain_df_f, retrain_audit_df_f))
+    render_decision_summary(
+        "Decision Summary",
+        summarize_monitoring_page(drift_df_f, retrain_df_f, retrain_audit_df_f),
+    )
 
     render_dataframe_panel("Drift Monitor", drift_df_f)
     if not drift_df_f.empty:
