@@ -505,6 +505,109 @@ def render_top_chart(
     fig.tight_layout()
     st.pyplot(fig)
 
+def render_kpi_row(items: List[tuple[str, str, str]]) -> None:
+    cols = st.columns(len(items))
+    for col, (label, value, css_class) in zip(cols, items):
+        with col:
+            render_kpi_card(label, value, css_class)
+
+
+def build_forecast_kpis(df: pd.DataFrame, label_prefix: str) -> List[tuple[str, str, str]]:
+    if df.empty:
+        return [
+            (f"{label_prefix} Rows", "0", "slate-card"),
+            (f"{label_prefix} Units", "0", "slate-card"),
+        ]
+
+    rows = format_kpi(float(len(df)))
+    units = "0"
+    if "forecast_units" in df.columns:
+        units = format_kpi(float(pd.to_numeric(df["forecast_units"], errors="coerce").fillna(0).sum()))
+
+    return [
+        (f"{label_prefix} Rows", rows, "blue-card"),
+        (f"{label_prefix} Units", units, "green-card"),
+    ]
+
+
+def build_monitoring_kpis(
+    drift_df: pd.DataFrame,
+    retrain_df: pd.DataFrame,
+    audit_df: pd.DataFrame,
+) -> List[tuple[str, str, str]]:
+    drift_rows = format_kpi(float(len(drift_df))) if not drift_df.empty else "0"
+    retrain_rows = format_kpi(float(len(retrain_df))) if not retrain_df.empty else "0"
+    audit_rows = format_kpi(float(len(audit_df))) if not audit_df.empty else "0"
+
+    return [
+        ("Drift Rows", drift_rows, "amber-card"),
+        ("Retraining Rows", retrain_rows, "purple-card"),
+        ("Audit Rows", audit_rows, "blue-card"),
+    ]
+
+
+def build_inventory_kpis(reorder_df: pd.DataFrame, site_df: pd.DataFrame) -> List[tuple[str, str, str]]:
+    reorder_rows = format_kpi(float(len(reorder_df))) if not reorder_df.empty else "0"
+    reorder_qty = "0"
+    if not reorder_df.empty and "recommended_reorder_qty" in reorder_df.columns:
+        reorder_qty = format_kpi(
+            float(pd.to_numeric(reorder_df["recommended_reorder_qty"], errors="coerce").fillna(0).sum())
+        )
+
+    site_rows = format_kpi(float(len(site_df))) if not site_df.empty else "0"
+
+    return [
+        ("Reorder Rows", reorder_rows, "amber-card"),
+        ("Reorder Qty", reorder_qty, "green-card"),
+        ("Site Rows", site_rows, "blue-card"),
+    ]
+
+def render_empty_state(title: str, filters: Dict[str, str]) -> None:
+    if filters:
+        applied = ", ".join([f"{k}={v}" for k, v in filters.items()])
+        st.info(f"No {title.lower()} rows match the current filters: {applied}.")
+    else:
+        st.info(f"No data available for {title}.")
+
+
+def render_top_chart(
+    df: pd.DataFrame,
+    category_candidates: List[str],
+    value_col: str,
+    title: str,
+    top_n: int = 10,
+) -> None:
+    if df.empty or value_col not in df.columns:
+        st.info(f"No chart data available for {title}.")
+        return
+
+    category_col = None
+    for col in category_candidates:
+        if col in df.columns:
+            category_col = col
+            break
+
+    if category_col is None:
+        st.info(f"No valid category column available for {title}.")
+        return
+
+    plot_df = df[[category_col, value_col]].copy()
+    plot_df[value_col] = pd.to_numeric(plot_df[value_col], errors="coerce")
+    plot_df = plot_df.dropna().sort_values(value_col, ascending=False).head(top_n)
+
+    if plot_df.empty:
+        st.info(f"No plottable rows available for {title}.")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.bar(plot_df[category_col].astype(str), plot_df[value_col])
+    ax.set_title(title)
+    ax.set_xlabel(category_col)
+    ax.set_ylabel(value_col)
+    ax.tick_params(axis="x", rotation=45)
+    fig.tight_layout()
+    st.pyplot(fig)
+
 def render_explainers() -> None:
     st.markdown(
         "<div class='section-title'>Model and System Explainers</div>",
@@ -880,11 +983,26 @@ elif page == "Executive Summary":
 elif page == "Model Comparison":
     st.markdown("<div class='section-title'>Model Comparison</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
+
+    model_rows = format_kpi(float(len(model_df_f))) if not model_df_f.empty else "0"
+    best_mae = "N/A"
+    if not model_df_f.empty and "mae" in model_df_f.columns:
+        best_mae = format_kpi(float(pd.to_numeric(model_df_f["mae"], errors="coerce").min()))
+    render_kpi_row([
+        ("Model Rows", model_rows, "blue-card"),
+        ("Best MAE", best_mae, "green-card"),
+    ])
+
     render_dataframe_panel("Model Comparison", model_df_f, sort_col="mae", ascending=True)
 
 elif page == "Forecasts":
     st.markdown("<div class='section-title'>Forecasts</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
+
+    render_kpi_row(build_forecast_kpis(store_df_f, "Store"))
+    render_kpi_row(build_forecast_kpis(region_df_f, "Region"))
+    render_kpi_row(build_forecast_kpis(dept_df_f, "Department"))
+    render_kpi_row(build_forecast_kpis(brand_df_f, "Brand"))
 
     col1, col2 = st.columns(2)
 
@@ -921,9 +1039,11 @@ elif page == "Forecasts":
             "forecast_units",
             "Top Brand Forecasts",
         )
+        
 elif page == "Inventory & Actions":
     st.markdown("<div class='section-title'>Inventory & Actions</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
+    render_kpi_row(build_inventory_kpis(reorder_df_f, site_df_f))
 
     if reorder_df_f.empty:
         render_empty_state("Inventory Recommendations", current_filters)
@@ -953,6 +1073,7 @@ elif page == "Inventory & Actions":
 elif page == "Monitoring":
     st.markdown("<div class='section-title'>Monitoring</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
+    render_kpi_row(build_monitoring_kpis(drift_df_f, retrain_df_f, retrain_audit_df_f))
 
     render_dataframe_panel("Drift Monitor", drift_df_f)
     if not drift_df_f.empty:
