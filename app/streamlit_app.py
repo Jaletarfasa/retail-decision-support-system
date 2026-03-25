@@ -12,6 +12,7 @@ try:
 except ModuleNotFoundError:
     from explainers import list_explainers, load_explainer_markup
 
+
 # -------------------------------------------------
 # Page config
 # -------------------------------------------------
@@ -204,7 +205,6 @@ def find_csv_files() -> List[Path]:
 
     csvs: List[Path] = []
     for path in DEMO_DIR.rglob("*.csv"):
-        # skip raw source files for the public demo
         if "source" in path.parts:
             continue
         csvs.append(path)
@@ -264,6 +264,50 @@ def numeric_summary_card(df: pd.DataFrame) -> Dict[str, float]:
         out[f"{first_col}_sum"] = float(
             pd.to_numeric(df[first_col], errors="coerce").fillna(0).sum()
         )
+    return out
+
+
+def build_filter_options(tables: Dict[str, pd.DataFrame]) -> Dict[str, List[str]]:
+    options = {
+        "region": [],
+        "store_id": [],
+        "category": [],
+        "sku_id": [],
+    }
+
+    for _, df in tables.items():
+        for col in options.keys():
+            if col in df.columns:
+                vals = df[col].dropna().astype(str).unique().tolist()
+                options[col].extend(vals)
+
+    for col in options:
+        options[col] = ["All"] + sorted(set(options[col]))
+
+    return options
+
+
+def apply_filters(
+    df: pd.DataFrame,
+    region_filter: str,
+    store_filter: str,
+    category_filter: str,
+    sku_filter: str,
+) -> pd.DataFrame:
+    out = df.copy()
+
+    if region_filter != "All" and "region" in out.columns:
+        out = out[out["region"].astype(str) == region_filter]
+
+    if store_filter != "All" and "store_id" in out.columns:
+        out = out[out["store_id"].astype(str) == store_filter]
+
+    if category_filter != "All" and "category" in out.columns:
+        out = out[out["category"].astype(str) == category_filter]
+
+    if sku_filter != "All" and "sku_id" in out.columns:
+        out = out[out["sku_id"].astype(str) == sku_filter]
+
     return out
 
 
@@ -396,7 +440,6 @@ def render_explainers() -> None:
 
     normalized = []
 
-    # Normalize while preserving the original object for loading
     if isinstance(explainers, dict):
         for key, value in explainers.items():
             if isinstance(value, dict):
@@ -482,6 +525,7 @@ def render_explainers() -> None:
             st.warning("Unable to load the selected explainer asset.")
         st.markdown("</div>", unsafe_allow_html=True)
 
+
 # -------------------------------------------------
 # Hero
 # -------------------------------------------------
@@ -518,10 +562,19 @@ model_hit = detect_model_table(tables)
 inventory_hit = detect_inventory_table(tables)
 summary_hit = detect_exec_summary_table(tables)
 
+filter_options = build_filter_options(tables)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Retail Filters**")
+
+region_filter = st.sidebar.selectbox("Region", filter_options["region"])
+store_filter = st.sidebar.selectbox("Store", filter_options["store_id"])
+category_filter = st.sidebar.selectbox("Category", filter_options["category"])
+sku_filter = st.sidebar.selectbox("SKU", filter_options["sku_id"])
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Project folders**")
-st.sidebar.caption(f"Outputs: {OUTPUTS_DIR}")
-st.sidebar.caption(f"Artifacts: {ARTIFACTS_DIR}")
+st.sidebar.caption(f"Demo artifacts: {DEMO_DIR}")
 st.sidebar.caption(f"Assets: {ASSETS_DIR}")
 
 # -------------------------------------------------
@@ -535,13 +588,13 @@ if page == "Overview":
 
     if not tables:
         status_box(
-            "No CSV outputs were found yet. Run the demo pipeline first, then refresh the app.",
+            "No CSV outputs were found yet. Demo artifacts are missing from the deployed app.",
             "watch",
         )
-        st.info("Try running the demo pipeline before launching the dashboard.")
+        st.info("Add or refresh the demo artifacts under artifacts/demo and reboot the app.")
     else:
         status_box(
-            "Dashboard loaded successfully. Data assets were discovered and summarized.",
+            "Dashboard loaded successfully. Demo artifacts were discovered and summarized.",
             "good",
         )
 
@@ -550,6 +603,13 @@ if page == "Overview":
 
         if summary_hit is not None:
             _, summary_df = summary_hit
+            summary_df = apply_filters(
+                summary_df,
+                region_filter,
+                store_filter,
+                category_filter,
+                sku_filter,
+            )
             summary_stats = numeric_summary_card(summary_df)
             for idx, (k, v) in enumerate(summary_stats.items()):
                 if idx >= 4:
@@ -564,6 +624,13 @@ if page == "Overview":
 
         if not kpi_payloads and inventory_hit is not None:
             _, inv_df = inventory_hit
+            inv_df = apply_filters(
+                inv_df,
+                region_filter,
+                store_filter,
+                category_filter,
+                sku_filter,
+            )
             inv_stats = numeric_summary_card(inv_df)
             for idx, (k, v) in enumerate(inv_stats.items()):
                 if idx >= 4:
@@ -600,7 +667,7 @@ if page == "Overview":
 - Deep tabular models: MLP and entity embeddings
 - MCP-style schemas, tool registry, and controller
 - Streamlit dashboard with explainers
-- Demo-safe execution mode and smoke tests
+- Demo-safe deployment using pre-generated artifacts
 """
             )
             st.markdown("</div>", unsafe_allow_html=True)
@@ -615,7 +682,7 @@ if page == "Overview":
                     "cols": [df.shape[1] for df in tables.values()],
                 }
             )
-            st.dataframe(discovered, use_container_width=True, hide_index=True)
+            st.dataframe(discovered, width="stretch", hide_index=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
@@ -629,16 +696,23 @@ elif page == "Model Comparison":
 
     if model_hit is None:
         status_box(
-            "No model comparison table was detected in outputs/artifacts/data.",
+            "No model comparison table was detected in the demo artifacts.",
             "watch",
         )
-        st.info("Run the pipeline first or verify that model metrics CSV outputs exist.")
+        st.info("Verify that selection/model_comparison.csv exists under artifacts/demo.")
     else:
         model_name, model_df = model_hit
+        model_df = apply_filters(
+            model_df,
+            region_filter,
+            store_filter,
+            category_filter,
+            sku_filter,
+        )
         st.caption(f"Source: {model_name}")
 
         st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
-        st.dataframe(model_df, use_container_width=True, hide_index=True)
+        st.dataframe(model_df, width="stretch", hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
         candidate_col = None
@@ -653,7 +727,7 @@ elif page == "Model Comparison":
                 metric_col = col
                 break
 
-        if candidate_col and metric_col:
+        if candidate_col and metric_col and not model_df.empty:
             make_bar_chart(
                 model_df,
                 candidate_col,
@@ -685,9 +759,16 @@ elif page == "Inventory & Actions":
 
     if inventory_hit is None:
         status_box("No inventory or reorder table was detected.", "watch")
-        st.info("Run the pipeline or verify that inventory outputs are available.")
+        st.info("Verify that inventory/inventory_recommendations.csv exists under artifacts/demo.")
     else:
         inventory_name, inventory_df = inventory_hit
+        inventory_df = apply_filters(
+            inventory_df,
+            region_filter,
+            store_filter,
+            category_filter,
+            sku_filter,
+        )
         st.caption(f"Source: {inventory_name}")
 
         left, right = st.columns([1.2, 1.8])
@@ -704,12 +785,10 @@ elif page == "Inventory & Actions":
 
         with right:
             st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
-            st.dataframe(
-                inventory_df.head(50), use_container_width=True, hide_index=True
-            )
+            st.dataframe(inventory_df.head(50), width="stretch", hide_index=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        if "recommended_reorder_qty" in inventory_df.columns:
+        if "recommended_reorder_qty" in inventory_df.columns and not inventory_df.empty:
             category_col = None
             for c in ["sku_id", "store_id", "product", "category"]:
                 if c in inventory_df.columns:
@@ -733,14 +812,21 @@ elif page == "Data Browser":
     )
 
     if not tables:
-        st.info("No CSV files found in outputs/, artifacts/, or data/.")
+        st.info("No demo CSV files found under artifacts/demo.")
     else:
         selected_table = st.selectbox("Select a discovered table", list(tables.keys()))
         df = tables[selected_table]
+        df = apply_filters(
+            df,
+            region_filter,
+            store_filter,
+            category_filter,
+            sku_filter,
+        )
 
         st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
         st.markdown(f"**Preview: {selected_table}**")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
@@ -752,7 +838,7 @@ elif page == "Data Browser":
                 "missing": [int(df[c].isna().sum()) for c in df.columns],
             }
         )
-        st.dataframe(dtype_df, use_container_width=True, hide_index=True)
+        st.dataframe(dtype_df, width="stretch", hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
