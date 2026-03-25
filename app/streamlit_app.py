@@ -30,44 +30,9 @@
 # - dashboard_pipeline_maturity.csv
 #
 # STEP POLICY:
-# Current phase: STEP 3 = single-source original CSV mode.
-# Use the original flat CSV files as the business-data backbone.
-# Do NOT rely on demo artifact tables for the main sections.
-# ================================================================
-
-# -------------------------------------------------
-# ENFORCED GUARDRAILS — DO NOT REMOVE
-# -------------------------------------------------
-# ================================================================
-# GUARDRAIL BLOCK — DO NOT REMOVE
-# ================================================================
-# PURPOSE:
-# Expand this app incrementally while preserving the full original
-# retail decision support system.
-#
-# NON-NEGOTIABLE RULES:
-# 1. Do NOT remove or simplify existing functionality.
-# 2. Do NOT convert this into a toy demo.
-# 3. Preserve all original datasets and business-facing sections.
-# 4. Only make incremental additions or modifications.
-# 5. Prefer add/extend over rewrite.
-# 6. Do not delete sections unless explicitly instructed.
-# ================================================================
-
-# ================================================================
-# GUARDRAIL BLOCK — DO NOT REMOVE
-# ================================================================
-# PURPOSE:
-# Expand this app incrementally while preserving the full original
-# retail decision support system.
-#
-# NON-NEGOTIABLE RULES:
-# 1. Do NOT remove or simplify existing functionality.
-# 2. Do NOT convert this into a toy demo.
-# 3. Preserve all original datasets and business-facing sections.
-# 4. Only make incremental additions or modifications.
-# 5. Prefer add/extend over rewrite.
-# 6. Do not delete sections unless explicitly instructed.
+# Current phase: STEP 4A = page-aware slicers only.
+# Refine filters only. Do NOT remove or rename any existing page,
+# dataset, or section. Preserve original CSV source mode.
 # ================================================================
 
 from __future__ import annotations
@@ -243,6 +208,30 @@ st.markdown(
         color: #475569;
         font-size: 0.9rem;
     }
+    .filter-chip-box {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 0.8rem 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+    .filter-chip-title {
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.45rem;
+    }
+    .filter-chip {
+        display: inline-block;
+        background: #eff6ff;
+        color: #1d4ed8;
+        padding: 0.35rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-right: 0.35rem;
+        margin-bottom: 0.3rem;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -352,7 +341,7 @@ def numeric_summary_card(df: pd.DataFrame) -> Dict[str, float]:
     return out
 
 
-def build_filter_options() -> Dict[str, List[str]]:
+def build_filter_options(frames: List[pd.DataFrame]) -> Dict[str, List[str]]:
     options = {
         "region": [],
         "store_id": [],
@@ -361,23 +350,6 @@ def build_filter_options() -> Dict[str, List[str]]:
         "sku_id": [],
         "brand": [],
     }
-
-    frames = [
-        region_df,
-        store_df,
-        dept_df,
-        reorder_df,
-        brand_df,
-        watch_df,
-        site_df,
-        exec_df,
-        model_df,
-        drift_df,
-        retrain_df,
-        retrain_audit_df,
-        agent_df,
-        maturity_df,
-    ]
 
     for df in frames:
         if df is None or df.empty:
@@ -487,6 +459,51 @@ def render_dataframe_panel(
         st.dataframe(df, width="stretch", hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+def render_empty_state(title: str, filters: Dict[str, str]) -> None:
+    if filters:
+        applied = ", ".join([f"{k}={v}" for k, v in filters.items()])
+        st.info(f"No {title.lower()} rows match the current filters: {applied}.")
+    else:
+        st.info(f"No data available for {title}.")
+
+
+def render_top_chart(
+    df: pd.DataFrame,
+    category_candidates: List[str],
+    value_col: str,
+    title: str,
+    top_n: int = 10,
+) -> None:
+    if df.empty or value_col not in df.columns:
+        st.info(f"No chart data available for {title}.")
+        return
+
+    category_col = None
+    for col in category_candidates:
+        if col in df.columns:
+            category_col = col
+            break
+
+    if category_col is None:
+        st.info(f"No valid category column available for {title}.")
+        return
+
+    plot_df = df[[category_col, value_col]].copy()
+    plot_df[value_col] = pd.to_numeric(plot_df[value_col], errors="coerce")
+    plot_df = plot_df.dropna().sort_values(value_col, ascending=False).head(top_n)
+
+    if plot_df.empty:
+        st.info(f"No plottable rows available for {title}.")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.bar(plot_df[category_col].astype(str), plot_df[value_col])
+    ax.set_title(title)
+    ax.set_xlabel(category_col)
+    ax.set_ylabel(value_col)
+    ax.tick_params(axis="x", rotation=45)
+    fig.tight_layout()
+    st.pyplot(fig)
 
 def render_explainers() -> None:
     st.markdown(
@@ -556,6 +573,88 @@ def render_explainers() -> None:
         else:
             st.warning("Unable to load the selected explainer asset.")
         st.markdown("</div>", unsafe_allow_html=True)
+
+
+def active_filter_dict(
+    region_filter: str,
+    store_filter: str,
+    department_filter: str,
+    category_filter: str,
+    sku_filter: str,
+    brand_filter: str,
+) -> Dict[str, str]:
+    filters = {
+        "Region": region_filter,
+        "Store": store_filter,
+        "Department": department_filter,
+        "Category": category_filter,
+        "SKU": sku_filter,
+        "Brand": brand_filter,
+    }
+    return {k: v for k, v in filters.items() if v != "All"}
+
+
+def render_active_filters(filters: Dict[str, str]) -> None:
+    if not filters:
+        return
+    chips = "".join(
+        [f"<span class='filter-chip'>{k}: {v}</span>" for k, v in filters.items()]
+    )
+    st.markdown(
+        f"""
+        <div class="filter-chip-box">
+            <div class="filter-chip-title">Active Filters</div>
+            {chips}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def page_filter_frames(page_name: str) -> List[pd.DataFrame]:
+    mapping = {
+        "Overview": [
+            exec_df,
+            model_df,
+            store_df,
+            dept_df,
+            region_df,
+            brand_df,
+            reorder_df,
+            drift_df,
+            retrain_df,
+            retrain_audit_df,
+            agent_df,
+            watch_df,
+            maturity_df,
+            site_df,
+        ],
+        "Executive Summary": [exec_df],
+        "Model Comparison": [model_df],
+        "Forecasts": [store_df, dept_df, region_df, brand_df],
+        "Inventory & Actions": [reorder_df, site_df],
+        "Monitoring": [drift_df, retrain_df, retrain_audit_df],
+        "Agent & Watchlist": [agent_df, watch_df],
+        "Pipeline Maturity": [maturity_df],
+        "Data Browser": [
+            exec_df,
+            model_df,
+            store_df,
+            dept_df,
+            region_df,
+            brand_df,
+            reorder_df,
+            drift_df,
+            retrain_df,
+            retrain_audit_df,
+            agent_df,
+            watch_df,
+            maturity_df,
+            site_df,
+        ],
+        "Explainers": [],
+    }
+    return mapping.get(page_name, [])
 
 
 # -------------------------------------------------
@@ -633,21 +732,31 @@ enforce_required_sections(NAV_OPTIONS)
 st.sidebar.title("Decision Modules")
 page = st.sidebar.radio("Choose a view", NAV_OPTIONS)
 
-filter_options = build_filter_options()
+page_frames = page_filter_frames(page)
+page_filter_options = build_filter_options(page_frames)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Retail Filters**")
-region_filter = st.sidebar.selectbox("Region", filter_options["region"])
-store_filter = st.sidebar.selectbox("Store", filter_options["store_id"])
-department_filter = st.sidebar.selectbox("Department", filter_options["department"])
-category_filter = st.sidebar.selectbox("Category", filter_options["category"])
-sku_filter = st.sidebar.selectbox("SKU", filter_options["sku_id"])
-brand_filter = st.sidebar.selectbox("Brand", filter_options["brand"])
+region_filter = st.sidebar.selectbox("Region", page_filter_options["region"], key=f"{page}_region")
+store_filter = st.sidebar.selectbox("Store", page_filter_options["store_id"], key=f"{page}_store")
+department_filter = st.sidebar.selectbox("Department", page_filter_options["department"], key=f"{page}_department")
+category_filter = st.sidebar.selectbox("Category", page_filter_options["category"], key=f"{page}_category")
+sku_filter = st.sidebar.selectbox("SKU", page_filter_options["sku_id"], key=f"{page}_sku")
+brand_filter = st.sidebar.selectbox("Brand", page_filter_options["brand"], key=f"{page}_brand")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Source mode**")
 st.sidebar.caption("Primary source: original flat CSV files")
 st.sidebar.caption(f"Assets: {ASSETS_DIR}")
+
+current_filters = active_filter_dict(
+    region_filter,
+    store_filter,
+    department_filter,
+    category_filter,
+    sku_filter,
+    brand_filter,
+)
 
 # Filtered frames
 exec_df_f = apply_filters(exec_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
@@ -671,6 +780,7 @@ maturity_df_f = apply_filters(maturity_df, region_filter, store_filter, departme
 # -------------------------------------------------
 if page == "Overview":
     st.markdown("<div class='section-title'>Executive Overview</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
 
     missing_required = dataset_guardrail_status.loc[
         ~dataset_guardrail_status["found"], "dataset"
@@ -764,59 +874,133 @@ if page == "Overview":
 
 elif page == "Executive Summary":
     st.markdown("<div class='section-title'>Executive Summary</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
     render_dataframe_panel("Executive Summary", exec_df_f)
 
 elif page == "Model Comparison":
     st.markdown("<div class='section-title'>Model Comparison</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
     render_dataframe_panel("Model Comparison", model_df_f, sort_col="mae", ascending=True)
 
 elif page == "Forecasts":
     st.markdown("<div class='section-title'>Forecasts</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
 
     col1, col2 = st.columns(2)
 
     with col1:
         render_dataframe_panel("Store Forecast", store_df_f, sort_col="forecast_units", ascending=False)
+        render_top_chart(
+            store_df_f,
+            ["store_id", "store", "site_id"],
+            "forecast_units",
+            "Top Store Forecasts",
+        )
+
         render_dataframe_panel("Region Forecast", region_df_f, sort_col="forecast_units", ascending=False)
+        render_top_chart(
+            region_df_f,
+            ["region"],
+            "forecast_units",
+            "Top Region Forecasts",
+        )
 
     with col2:
         render_dataframe_panel("Department Forecast", dept_df_f, sort_col="forecast_units", ascending=False)
-        render_dataframe_panel("Brand Forecast", brand_df_f, sort_col="forecast_units", ascending=False)
+        render_top_chart(
+            dept_df_f,
+            ["department", "category"],
+            "forecast_units",
+            "Top Department Forecasts",
+        )
 
+        render_dataframe_panel("Brand Forecast", brand_df_f, sort_col="forecast_units", ascending=False)
+        render_top_chart(
+            brand_df_f,
+            ["brand"],
+            "forecast_units",
+            "Top Brand Forecasts",
+        )
 elif page == "Inventory & Actions":
     st.markdown("<div class='section-title'>Inventory & Actions</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
 
-    render_dataframe_panel("Inventory Recommendations", reorder_df_f)
-
-    if not reorder_df_f.empty and "recommended_reorder_qty" in reorder_df_f.columns:
-        chart_col = "sku_id" if "sku_id" in reorder_df_f.columns else reorder_df_f.columns[0]
-        make_bar_chart(
+    if reorder_df_f.empty:
+        render_empty_state("Inventory Recommendations", current_filters)
+    else:
+        render_dataframe_panel("Inventory Recommendations", reorder_df_f)
+        render_top_chart(
             reorder_df_f,
-            chart_col,
+            ["sku_id", "store_id", "category"],
             "recommended_reorder_qty",
-            "Top Inventory Recommendations",
+            "Top Reorder Recommendations",
         )
 
     sort_col = "projected_value_index" if "projected_value_index" in site_df_f.columns else None
-    render_dataframe_panel("Optimized Site Selection", site_df_f, sort_col=sort_col, ascending=False)
+
+    if site_df_f.empty:
+        render_empty_state("Optimized Site Selection", current_filters)
+    else:
+        render_dataframe_panel("Optimized Site Selection", site_df_f, sort_col=sort_col, ascending=False)
+        if sort_col is not None:
+            render_top_chart(
+                site_df_f,
+                ["site_id", "store_id", "region", "location"],
+                "projected_value_index",
+                "Top Site Selection Rankings",
+            )
 
 elif page == "Monitoring":
     st.markdown("<div class='section-title'>Monitoring</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
+
     render_dataframe_panel("Drift Monitor", drift_df_f)
+    if not drift_df_f.empty:
+        if "psi" in drift_df_f.columns:
+            render_top_chart(
+                drift_df_f,
+                ["feature", "metric", "column"],
+                "psi",
+                "Top Drift Signals by PSI",
+            )
+        elif "drift_score" in drift_df_f.columns:
+            render_top_chart(
+                drift_df_f,
+                ["feature", "metric", "column"],
+                "drift_score",
+                "Top Drift Signals",
+            )
+
     render_dataframe_panel("Retraining Status", retrain_df_f)
+    if not retrain_df_f.empty:
+        status_cols = [c for c in ["status", "retrain_flag", "decision"] if c in retrain_df_f.columns]
+        if status_cols:
+            status_col = status_cols[0]
+            counts = retrain_df_f[status_col].astype(str).value_counts().reset_index()
+            counts.columns = [status_col, "count"]
+            render_top_chart(
+                counts,
+                [status_col],
+                "count",
+                "Retraining Status Counts",
+            )
+
     render_dataframe_panel("Retraining Audit", retrain_audit_df_f)
 
 elif page == "Agent & Watchlist":
     st.markdown("<div class='section-title'>Agent & Watchlist</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
     render_dataframe_panel("Agent Answers", agent_df_f)
     render_dataframe_panel("Store Watchlist", watch_df_f)
 
 elif page == "Pipeline Maturity":
     st.markdown("<div class='section-title'>Pipeline Maturity</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
     render_dataframe_panel("Implementation Maturity", maturity_df_f)
 
 elif page == "Data Browser":
     st.markdown("<div class='section-title'>Data Browser</div>", unsafe_allow_html=True)
+    render_active_filters(current_filters)
 
     filtered_browser_tables: Dict[str, pd.DataFrame] = {
         "dashboard_executive_summary.csv": exec_df_f,
@@ -861,5 +1045,5 @@ elif page == "Explainers":
 # -------------------------------------------------
 st.markdown("---")
 st.caption(
-    "Retail Decision Support System • Original CSV Source Mode • Classical ML + Deep Tabular Models • Explainable Dashboard"
+    "Retail Decision Support System • Step 4A Page-Aware Filters • Original CSV Source Mode • Explainable Dashboard"
 )
