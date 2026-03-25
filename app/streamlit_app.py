@@ -527,7 +527,147 @@ def render_decision_summary(title: str, bullets: List[str]) -> None:
         unsafe_allow_html=True,
     )
 
+def to_csv_bytes(df: pd.DataFrame) -> bytes:
+    if df is None or df.empty:
+        return b""
+    return df.to_csv(index=False).encode("utf-8")
 
+
+def render_download_button(label: str, df: pd.DataFrame, filename: str) -> None:
+    if df is None or df.empty:
+        return
+    st.download_button(
+        label=label,
+        data=to_csv_bytes(df),
+        file_name=filename,
+        mime="text/csv",
+        width="stretch",
+    )
+   
+def render_decision_narrative(title: str, paragraphs: List[str]) -> None:
+    if not paragraphs:
+        return
+    body = "".join([f"<p style='margin-bottom: 0.55rem;'>{p}</p>" for p in paragraphs])
+    st.markdown(
+        f"""
+        <div class="panel-box">
+            <div class="filter-chip-title">{title}</div>
+            {body}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def narrative_model_page(df: pd.DataFrame) -> List[str]:
+    if df.empty:
+        return ["No model evidence is available under the current filters."]
+
+    lines = [f"The current filtered view contains {len(df)} model rows."]
+    if "mae" in df.columns:
+        tmp = df.copy()
+        tmp["mae_num"] = pd.to_numeric(tmp["mae"], errors="coerce")
+        tmp = tmp.dropna(subset=["mae_num"])
+        if not tmp.empty:
+            best = tmp.sort_values("mae_num").iloc[0]
+            best_name = str(best["model_name"]) if "model_name" in tmp.columns else "the best-ranked model"
+            lines.append(
+                f"{best_name} currently provides the lowest MAE at {format_kpi(float(best['mae_num']))}."
+            )
+    return lines
+
+
+def narrative_forecast_page(
+    store_df: pd.DataFrame,
+    dept_df: pd.DataFrame,
+    region_df: pd.DataFrame,
+    brand_df: pd.DataFrame,
+) -> List[str]:
+    lines: List[str] = []
+
+    def top_line(df: pd.DataFrame, label_col: str, value_col: str, label_name: str) -> Optional[str]:
+        if df.empty or label_col not in df.columns or value_col not in df.columns:
+            return None
+        tmp = df[[label_col, value_col]].copy()
+        tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
+        tmp = tmp.dropna().sort_values(value_col, ascending=False)
+        if tmp.empty:
+            return None
+        return f"The highest {label_name} forecast is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0][value_col]))} units."
+
+    for line in [
+        top_line(store_df, "store_id", "forecast_units", "store"),
+        top_line(region_df, "region", "forecast_units", "region"),
+        top_line(
+            dept_df,
+            "department" if "department" in dept_df.columns else "category",
+            "forecast_units",
+            "department",
+        ),
+        top_line(brand_df, "brand", "forecast_units", "brand"),
+    ]:
+        if line:
+            lines.append(line)
+
+    if not lines:
+        lines.append("No forecast narrative can be generated under the current filters.")
+    return lines
+
+
+def narrative_inventory_page(reorder_df: pd.DataFrame, site_df: pd.DataFrame) -> List[str]:
+    lines: List[str] = []
+
+    if not reorder_df.empty and "recommended_reorder_qty" in reorder_df.columns:
+        tmp = reorder_df.copy()
+        tmp["recommended_reorder_qty"] = pd.to_numeric(tmp["recommended_reorder_qty"], errors="coerce")
+        tmp = tmp.dropna(subset=["recommended_reorder_qty"]).sort_values("recommended_reorder_qty", ascending=False)
+        if not tmp.empty:
+            label_col = "sku_id" if "sku_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else None)
+            if label_col:
+                lines.append(
+                    f"The top reorder priority is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0]['recommended_reorder_qty']))} recommended units."
+                )
+
+    if not site_df.empty and "projected_value_index" in site_df.columns:
+        tmp = site_df.copy()
+        tmp["projected_value_index"] = pd.to_numeric(tmp["projected_value_index"], errors="coerce")
+        tmp = tmp.dropna(subset=["projected_value_index"]).sort_values("projected_value_index", ascending=False)
+        if not tmp.empty:
+            label_col = "site_id" if "site_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else ("region" if "region" in tmp.columns else None))
+            if label_col:
+                lines.append(
+                    f"The strongest site opportunity is {tmp.iloc[0][label_col]} with projected value {format_kpi(float(tmp.iloc[0]['projected_value_index']))}."
+                )
+
+    if not lines:
+        lines.append("No inventory or site-selection narrative can be generated under the current filters.")
+    return lines
+
+
+def narrative_monitoring_page(
+    drift_df: pd.DataFrame,
+    retrain_df: pd.DataFrame,
+    audit_df: pd.DataFrame,
+) -> List[str]:
+    lines: List[str] = []
+
+    if not drift_df.empty:
+        lines.append(f"Drift monitoring currently contains {len(drift_df)} rows in scope.")
+        if "psi" in drift_df.columns:
+            psi_series = pd.to_numeric(drift_df["psi"], errors="coerce").dropna()
+            if not psi_series.empty:
+                lines.append(f"The highest PSI visible in the filtered view is {format_kpi(float(psi_series.max()))}.")
+
+    if not retrain_df.empty:
+        lines.append(f"Retraining status currently contains {len(retrain_df)} rows.")
+
+    if not audit_df.empty:
+        lines.append(f"Retraining audit currently contains {len(audit_df)} rows.")
+
+    if not lines:
+        lines.append("No monitoring narrative can be generated under the current filters.")
+    return lines
+ 
 def summarize_model_page(df: pd.DataFrame) -> List[str]:
     if df.empty:
         return ["No model rows available under the current filters."]
@@ -1114,6 +1254,12 @@ elif page == "Model Comparison":
     ])
 
     render_decision_summary("Decision Summary", summarize_model_page(model_df_f))
+    render_decision_narrative("Decision Narrative", narrative_model_page(model_df_f))
+    render_download_button(
+        "Download Model Comparison CSV",
+        model_df_f,
+        "model_comparison_filtered.csv",
+    )
     render_dataframe_panel("Model Comparison", model_df_f, sort_col="mae", ascending=True)
 
 elif page == "Forecasts":
@@ -1128,6 +1274,20 @@ elif page == "Forecasts":
         "Decision Summary",
         summarize_forecast_page(store_df_f, dept_df_f, region_df_f, brand_df_f),
     )
+    render_decision_narrative(
+        "Decision Narrative",
+        narrative_forecast_page(store_df_f, dept_df_f, region_df_f, brand_df_f),
+    )
+
+    dl1, dl2, dl3, dl4 = st.columns(4)
+    with dl1:
+        render_download_button("Download Store Forecast", store_df_f, "store_forecast_filtered.csv")
+    with dl2:
+        render_download_button("Download Department Forecast", dept_df_f, "department_forecast_filtered.csv")
+    with dl3:
+        render_download_button("Download Region Forecast", region_df_f, "region_forecast_filtered.csv")
+    with dl4:
+        render_download_button("Download Brand Forecast", brand_df_f, "brand_forecast_filtered.csv")
 
     col1, col2 = st.columns(2)
 
@@ -1173,6 +1333,24 @@ elif page == "Inventory & Actions":
         "Decision Summary",
         summarize_inventory_page(reorder_df_f, site_df_f),
     )
+    render_decision_narrative(
+        "Decision Narrative",
+        narrative_inventory_page(reorder_df_f, site_df_f),
+    )
+
+    dl1, dl2 = st.columns(2)
+    with dl1:
+        render_download_button(
+            "Download Inventory Recommendations",
+            reorder_df_f,
+            "inventory_recommendations_filtered.csv",
+        )
+    with dl2:
+        render_download_button(
+            "Download Site Selection",
+            site_df_f,
+            "site_selection_filtered.csv",
+        )
 
     if reorder_df_f.empty:
         render_empty_state("Inventory Recommendations", current_filters)
@@ -1207,6 +1385,18 @@ elif page == "Monitoring":
         "Decision Summary",
         summarize_monitoring_page(drift_df_f, retrain_df_f, retrain_audit_df_f),
     )
+    render_decision_narrative(
+        "Decision Narrative",
+        narrative_monitoring_page(drift_df_f, retrain_df_f, retrain_audit_df_f),
+    )
+
+    dl1, dl2, dl3 = st.columns(3)
+    with dl1:
+        render_download_button("Download Drift Monitor", drift_df_f, "drift_monitor_filtered.csv")
+    with dl2:
+        render_download_button("Download Retraining Status", retrain_df_f, "retraining_status_filtered.csv")
+    with dl3:
+        render_download_button("Download Retraining Audit", retrain_audit_df_f, "retraining_audit_filtered.csv")
 
     render_dataframe_panel("Drift Monitor", drift_df_f)
     if not drift_df_f.empty:
@@ -1244,12 +1434,24 @@ elif page == "Monitoring":
 elif page == "Agent & Watchlist":
     st.markdown("<div class='section-title'>Agent & Watchlist</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
+
+    dl1, dl2 = st.columns(2)
+    with dl1:
+        render_download_button("Download Agent Answers", agent_df_f, "agent_answers_filtered.csv")
+    with dl2:
+        render_download_button("Download Store Watchlist", watch_df_f, "store_watchlist_filtered.csv")
+
     render_dataframe_panel("Agent Answers", agent_df_f)
     render_dataframe_panel("Store Watchlist", watch_df_f)
 
 elif page == "Pipeline Maturity":
     st.markdown("<div class='section-title'>Pipeline Maturity</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
+    render_download_button(
+        "Download Pipeline Maturity",
+        maturity_df_f,
+        "pipeline_maturity_filtered.csv",
+    )
     render_dataframe_panel("Implementation Maturity", maturity_df_f)
 
 elif page == "Data Browser":
