@@ -53,7 +53,7 @@ REQUIRED_DATASETS = [
     "store_watchlist.csv",
     "dashboard_pipeline_maturity.csv",
 ]
-
+from __future__ import annotations
 REQUIRED_SECTIONS = [
     "Overview",
     "Executive Summary",
@@ -67,7 +67,7 @@ REQUIRED_SECTIONS = [
     "Explainers",
 ]
 
-from __future__ import annotations
+
 
 from pathlib import Path
 from typing import Dict, List, Optional
