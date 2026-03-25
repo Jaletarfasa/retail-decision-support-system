@@ -38,6 +38,27 @@
 # -------------------------------------------------
 # ENFORCED GUARDRAILS — DO NOT REMOVE
 # -------------------------------------------------
+# ================================================================
+# GUARDRAIL BLOCK — DO NOT REMOVE
+# ================================================================
+# PURPOSE:
+# Expand this app incrementally while preserving the full original
+# retail decision support system.
+#
+# NON-NEGOTIABLE RULES:
+# 1. Do NOT remove or simplify existing functionality.
+# 2. Do NOT convert this into a toy demo.
+# 3. Preserve all original datasets and business-facing sections.
+# 4. Only make incremental additions or modifications.
+# 5. Prefer add/extend over rewrite.
+# 6. Do not delete sections unless explicitly instructed.
+# ================================================================
+
+from __future__ import annotations
+
+# -------------------------------------------------
+# ENFORCED GUARDRAILS — DO NOT REMOVE
+# -------------------------------------------------
 REQUIRED_DATASETS = [
     "dashboard_executive_summary.csv",
     "dashboard_model_comparison.csv",
@@ -53,7 +74,7 @@ REQUIRED_DATASETS = [
     "store_watchlist.csv",
     "dashboard_pipeline_maturity.csv",
 ]
-from __future__ import annotations
+
 REQUIRED_SECTIONS = [
     "Overview",
     "Executive Summary",
@@ -66,9 +87,6 @@ REQUIRED_SECTIONS = [
     "Data Browser",
     "Explainers",
 ]
-
-
-
 from pathlib import Path
 from typing import Dict, List, Optional
 
