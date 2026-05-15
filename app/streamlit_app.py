@@ -28,11 +28,6 @@
 # - agent_answers.csv
 # - store_watchlist.csv
 # - dashboard_pipeline_maturity.csv
-#
-# STEP POLICY:
-# Current phase: STEP 4A = page-aware slicers only.
-# Refine filters only. Do NOT remove or rename any existing page,
-# dataset, or section. Preserve original CSV source mode.
 # ================================================================
 
 from __future__ import annotations
@@ -59,10 +54,12 @@ REQUIRED_DATASETS = [
 REQUIRED_SECTIONS = [
     "Overview",
     "Executive Summary",
+        "Trust Infrastructure",
     "Model Comparison",
     "Forecasts",
     "Inventory & Actions",
     "Monitoring",
+        "Workflow Automation",
     "Agent & Watchlist",
     "Pipeline Maturity",
     "Data Browser",
@@ -70,7 +67,7 @@ REQUIRED_SECTIONS = [
 ]
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -242,13 +239,12 @@ st.markdown(
 # Helpers
 # -------------------------------------------------
 def locate_named_csv(filename: str) -> Optional[Path]:
-    direct_candidates = [
+    for candidate in [
         PROJECT_ROOT / filename,
         APP_DIR / filename,
         OUTPUTS_DIR / filename,
         DATA_DIR / filename,
-    ]
-    for candidate in direct_candidates:
+    ]:
         if candidate.exists():
             return candidate
     return None
@@ -285,17 +281,17 @@ def load_any_csv(candidates: List[str]) -> pd.DataFrame:
 
 
 def check_required_datasets() -> pd.DataFrame:
-    records = []
+    rows = []
     for filename in REQUIRED_DATASETS:
         path = locate_named_csv(filename)
-        records.append(
+        rows.append(
             {
                 "dataset": filename,
                 "found": path is not None,
                 "path": str(path) if path is not None else "",
             }
         )
-    return pd.DataFrame(records)
+    return pd.DataFrame(rows)
 
 
 def enforce_required_sections(nav_options: List[str]) -> None:
@@ -350,15 +346,12 @@ def build_filter_options(frames: List[pd.DataFrame]) -> Dict[str, List[str]]:
         "sku_id": [],
         "brand": [],
     }
-
     for df in frames:
         if df is None or df.empty:
             continue
-        for col in options.keys():
+        for col in options:
             if col in df.columns:
-                vals = df[col].dropna().astype(str).unique().tolist()
-                options[col].extend(vals)
-
+                options[col].extend(df[col].dropna().astype(str).unique().tolist())
     for col in options:
         options[col] = ["All"] + sorted(set(options[col]))
     return options
@@ -374,7 +367,6 @@ def apply_filters(
     brand_filter: str,
 ) -> pd.DataFrame:
     out = df.copy()
-
     if region_filter != "All" and "region" in out.columns:
         out = out[out["region"].astype(str) == region_filter]
     if store_filter != "All" and "store_id" in out.columns:
@@ -387,7 +379,6 @@ def apply_filters(
         out = out[out["sku_id"].astype(str) == sku_filter]
     if brand_filter != "All" and "brand" in out.columns:
         out = out[out["brand"].astype(str) == brand_filter]
-
     return out
 
 
@@ -418,29 +409,11 @@ def render_kpi_card(label: str, value: str, css_class: str) -> None:
     )
 
 
-def make_bar_chart(
-    df: pd.DataFrame, category_col: str, value_col: str, title: str
-) -> None:
-    if category_col not in df.columns or value_col not in df.columns:
-        st.info("Required chart columns are not available.")
-        return
-
-    plot_df = df[[category_col, value_col]].copy()
-    plot_df[value_col] = pd.to_numeric(plot_df[value_col], errors="coerce")
-    plot_df = plot_df.dropna().sort_values(value_col, ascending=False).head(10)
-
-    if plot_df.empty:
-        st.info("No plottable data available.")
-        return
-
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.bar(plot_df[category_col].astype(str), plot_df[value_col])
-    ax.set_title(title)
-    ax.set_xlabel(category_col)
-    ax.set_ylabel(value_col)
-    ax.tick_params(axis="x", rotation=45)
-    fig.tight_layout()
-    st.pyplot(fig)
+def render_kpi_row(items: List[tuple[str, str, str]]) -> None:
+    cols = st.columns(len(items))
+    for col, (label, value, css_class) in zip(cols, items):
+        with col:
+            render_kpi_card(label, value, css_class)
 
 
 def render_dataframe_panel(
@@ -458,6 +431,7 @@ def render_dataframe_panel(
             df = df.sort_values(sort_col, ascending=ascending)
         st.dataframe(df, width="stretch", hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 def render_empty_state(title: str, filters: Dict[str, str]) -> None:
     if filters:
@@ -505,11 +479,6 @@ def render_top_chart(
     fig.tight_layout()
     st.pyplot(fig)
 
-def render_kpi_row(items: List[tuple[str, str, str]]) -> None:
-    cols = st.columns(len(items))
-    for col, (label, value, css_class) in zip(cols, items):
-        with col:
-            render_kpi_card(label, value, css_class)
 
 def render_decision_summary(title: str, bullets: List[str]) -> None:
     if not bullets:
@@ -527,6 +496,7 @@ def render_decision_summary(title: str, bullets: List[str]) -> None:
         unsafe_allow_html=True,
     )
 
+
 def to_csv_bytes(df: pd.DataFrame) -> bytes:
     if df is None or df.empty:
         return b""
@@ -543,7 +513,8 @@ def render_download_button(label: str, df: pd.DataFrame, filename: str) -> None:
         mime="text/csv",
         width="stretch",
     )
-   
+
+
 def render_decision_narrative(title: str, paragraphs: List[str]) -> None:
     if not paragraphs:
         return
@@ -559,10 +530,149 @@ def render_decision_narrative(title: str, paragraphs: List[str]) -> None:
     )
 
 
+def render_dashboard_qa(
+    title: str,
+    questions: List[str],
+    answer_func: Callable[[str], str],
+    key_prefix: str,
+) -> None:
+    st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+    st.markdown(f"**{title}**")
+    selected_q = st.selectbox("Choose a question", questions, key=f"{key_prefix}_question")
+    answer = answer_func(selected_q)
+    st.markdown(f"**Answer:** {answer}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def build_snapshot_text(title: str, filters: Dict[str, str], lines: List[str]) -> str:
+    filter_text = "None" if not filters else ", ".join([f"{k}={v}" for k, v in filters.items()])
+    body = "\n".join([f"- {line}" for line in lines]) if lines else "- No summary available."
+    return f"""Retail Decision Support System
+Section: {title}
+Active Filters: {filter_text}
+
+Summary:
+{body}
+"""
+
+
+def render_snapshot_download(title: str, filters: Dict[str, str], lines: List[str], filename: str) -> None:
+    snapshot = build_snapshot_text(title, filters, lines)
+    st.download_button(
+        label=f"Download {title} Snapshot",
+        data=snapshot.encode("utf-8"),
+        file_name=filename,
+        mime="text/plain",
+        width="stretch",
+    )
+
+
+def summarize_model_page(df: pd.DataFrame) -> List[str]:
+    if df.empty:
+        return ["No model rows available under the current filters."]
+    bullets = [f"{len(df)} model rows are currently in scope."]
+    if "mae" in df.columns:
+        mae_series = pd.to_numeric(df["mae"], errors="coerce").dropna()
+        if not mae_series.empty:
+            bullets.append(f"Best observed MAE is {format_kpi(float(mae_series.min()))}.")
+    if "model_name" in df.columns and "mae" in df.columns:
+        tmp = df.copy()
+        tmp["mae_num"] = pd.to_numeric(tmp["mae"], errors="coerce")
+        tmp = tmp.dropna(subset=["mae_num"])
+        if not tmp.empty:
+            best_model = str(tmp.sort_values("mae_num").iloc[0]["model_name"])
+            bullets.append(f"Top-ranked model under the current filters is {best_model}.")
+    return bullets
+
+
+def summarize_forecast_page(
+    store_df: pd.DataFrame,
+    dept_df: pd.DataFrame,
+    region_df: pd.DataFrame,
+    brand_df: pd.DataFrame,
+) -> List[str]:
+    bullets: List[str] = []
+
+    def add_top(df: pd.DataFrame, label_col: str, value_col: str, label_name: str) -> None:
+        if df.empty or label_col not in df.columns or value_col not in df.columns:
+            return
+        tmp = df[[label_col, value_col]].copy()
+        tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
+        tmp = tmp.dropna().sort_values(value_col, ascending=False)
+        if not tmp.empty:
+            bullets.append(
+                f"Highest {label_name} forecast is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0][value_col]))} units."
+            )
+
+    add_top(store_df, "store_id", "forecast_units", "store")
+    add_top(region_df, "region", "forecast_units", "region")
+    add_top(
+        dept_df,
+        "department" if "department" in dept_df.columns else "category",
+        "forecast_units",
+        "department",
+    )
+    add_top(brand_df, "brand", "forecast_units", "brand")
+
+    if not bullets:
+        bullets.append("No forecast rows are available under the current filters.")
+    return bullets
+
+
+def summarize_inventory_page(reorder_df: pd.DataFrame, site_df: pd.DataFrame) -> List[str]:
+    bullets: List[str] = []
+
+    if not reorder_df.empty and "recommended_reorder_qty" in reorder_df.columns:
+        tmp = reorder_df.copy()
+        tmp["recommended_reorder_qty"] = pd.to_numeric(tmp["recommended_reorder_qty"], errors="coerce")
+        tmp = tmp.dropna(subset=["recommended_reorder_qty"]).sort_values("recommended_reorder_qty", ascending=False)
+        if not tmp.empty:
+            label_col = "sku_id" if "sku_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else None)
+            if label_col is not None:
+                bullets.append(
+                    f"Top reorder priority is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0]['recommended_reorder_qty']))} recommended units."
+                )
+
+    if not site_df.empty and "projected_value_index" in site_df.columns:
+        tmp = site_df.copy()
+        tmp["projected_value_index"] = pd.to_numeric(tmp["projected_value_index"], errors="coerce")
+        tmp = tmp.dropna(subset=["projected_value_index"]).sort_values("projected_value_index", ascending=False)
+        if not tmp.empty:
+            label_col = "site_id" if "site_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else ("region" if "region" in tmp.columns else None))
+            if label_col is not None:
+                bullets.append(
+                    f"Top site opportunity is {tmp.iloc[0][label_col]} with projected value {format_kpi(float(tmp.iloc[0]['projected_value_index']))}."
+                )
+
+    if not bullets:
+        bullets.append("No inventory or site-selection rows are available under the current filters.")
+    return bullets
+
+
+def summarize_monitoring_page(
+    drift_df: pd.DataFrame,
+    retrain_df: pd.DataFrame,
+    audit_df: pd.DataFrame,
+) -> List[str]:
+    bullets: List[str] = []
+    if not drift_df.empty:
+        bullets.append(f"Drift monitor currently shows {len(drift_df)} rows in scope.")
+        if "psi" in drift_df.columns:
+            psi_series = pd.to_numeric(drift_df["psi"], errors="coerce").dropna()
+            if not psi_series.empty:
+                bullets.append(f"Highest PSI currently visible is {format_kpi(float(psi_series.max()))}.")
+    if not retrain_df.empty:
+        bullets.append(f"Retraining status currently has {len(retrain_df)} rows in scope.")
+    if not audit_df.empty:
+        bullets.append(f"Retraining audit currently has {len(audit_df)} rows in scope.")
+    if not bullets:
+        bullets.append("No monitoring rows are available under the current filters.")
+    return bullets
+
+
 def narrative_model_page(df: pd.DataFrame) -> List[str]:
     if df.empty:
         return ["No model evidence is available under the current filters."]
-
     lines = [f"The current filtered view contains {len(df)} model rows."]
     if "mae" in df.columns:
         tmp = df.copy()
@@ -650,127 +760,131 @@ def narrative_monitoring_page(
     audit_df: pd.DataFrame,
 ) -> List[str]:
     lines: List[str] = []
-
     if not drift_df.empty:
         lines.append(f"Drift monitoring currently contains {len(drift_df)} rows in scope.")
         if "psi" in drift_df.columns:
             psi_series = pd.to_numeric(drift_df["psi"], errors="coerce").dropna()
             if not psi_series.empty:
                 lines.append(f"The highest PSI visible in the filtered view is {format_kpi(float(psi_series.max()))}.")
-
     if not retrain_df.empty:
         lines.append(f"Retraining status currently contains {len(retrain_df)} rows.")
-
     if not audit_df.empty:
         lines.append(f"Retraining audit currently contains {len(audit_df)} rows.")
-
     if not lines:
         lines.append("No monitoring narrative can be generated under the current filters.")
     return lines
- 
-def summarize_model_page(df: pd.DataFrame) -> List[str]:
+
+
+def answer_model_question(df: pd.DataFrame, question: str) -> str:
+    q = question.lower().strip()
     if df.empty:
-        return ["No model rows available under the current filters."]
-
-    bullets = [f"{len(df)} model rows are currently in scope."]
-    if "mae" in df.columns:
-        mae_series = pd.to_numeric(df["mae"], errors="coerce").dropna()
-        if not mae_series.empty:
-            bullets.append(f"Best observed MAE is {format_kpi(float(mae_series.min()))}.")
-    if "model_name" in df.columns and "mae" in df.columns:
-        tmp = df.copy()
-        tmp["mae_num"] = pd.to_numeric(tmp["mae"], errors="coerce")
-        tmp = tmp.dropna(subset=["mae_num"])
-        if not tmp.empty:
-            best_model = str(tmp.sort_values("mae_num").iloc[0]["model_name"])
-            bullets.append(f"Top-ranked model under the current filters is {best_model}.")
-    return bullets
+        return "No model data is available under the current filters."
+    if "best" in q or "lowest mae" in q or "which model" in q:
+        if "mae" in df.columns:
+            tmp = df.copy()
+            tmp["mae_num"] = pd.to_numeric(tmp["mae"], errors="coerce")
+            tmp = tmp.dropna(subset=["mae_num"])
+            if not tmp.empty:
+                best = tmp.sort_values("mae_num").iloc[0]
+                model_name = str(best["model_name"]) if "model_name" in tmp.columns else "the best-ranked model"
+                return f"{model_name} is currently the best model under the active filters, with MAE {format_kpi(float(best['mae_num']))}."
+        return "I can’t identify the best model because MAE is not available in the current filtered table."
+    return "Try asking which model is best or which model has the lowest MAE."
 
 
-def summarize_forecast_page(
+def answer_forecast_question(
     store_df: pd.DataFrame,
     dept_df: pd.DataFrame,
     region_df: pd.DataFrame,
     brand_df: pd.DataFrame,
-) -> List[str]:
-    bullets: List[str] = []
+    question: str,
+) -> str:
+    q = question.lower().strip()
 
-    def add_top(df: pd.DataFrame, label_col: str, value_col: str, label_name: str) -> None:
-        if df.empty or label_col not in df.columns or value_col not in df.columns:
-            return
-        tmp = df[[label_col, value_col]].copy()
-        tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
-        tmp = tmp.dropna().sort_values(value_col, ascending=False)
-        if not tmp.empty:
-            top_label = str(tmp.iloc[0][label_col])
-            top_value = format_kpi(float(tmp.iloc[0][value_col]))
-            bullets.append(f"Highest {label_name} forecast is {top_label} with {top_value} units.")
+    def top_answer(df: pd.DataFrame, label_col: str, label_name: str) -> Optional[str]:
+        if df.empty or label_col not in df.columns or "forecast_units" not in df.columns:
+            return None
+        tmp = df[[label_col, "forecast_units"]].copy()
+        tmp["forecast_units"] = pd.to_numeric(tmp["forecast_units"], errors="coerce")
+        tmp = tmp.dropna().sort_values("forecast_units", ascending=False)
+        if tmp.empty:
+            return None
+        return f"The highest {label_name} forecast is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0]['forecast_units']))} units."
 
-    add_top(store_df, "store_id", "forecast_units", "store")
-    add_top(region_df, "region", "forecast_units", "region")
-    add_top(dept_df, "department" if "department" in dept_df.columns else "category", "forecast_units", "department")
-    add_top(brand_df, "brand", "forecast_units", "brand")
+    if "region" in q:
+        ans = top_answer(region_df, "region", "region")
+        return ans or "No region forecast answer is available under the current filters."
+    if "department" in q or "category" in q:
+        label_col = "department" if "department" in dept_df.columns else "category"
+        ans = top_answer(dept_df, label_col, "department")
+        return ans or "No department forecast answer is available under the current filters."
+    if "brand" in q:
+        ans = top_answer(brand_df, "brand", "brand")
+        return ans or "No brand forecast answer is available under the current filters."
+    if "store" in q:
+        ans = top_answer(store_df, "store_id", "store")
+        return ans or "No store forecast answer is available under the current filters."
+    return "Try asking for the highest forecasted store, region, department, or brand."
 
-    if not bullets:
-        bullets.append("No forecast rows are available under the current filters.")
-    return bullets
 
+def answer_inventory_question(reorder_df: pd.DataFrame, site_df: pd.DataFrame, question: str) -> str:
+    q = question.lower().strip()
 
-def summarize_inventory_page(reorder_df: pd.DataFrame, site_df: pd.DataFrame) -> List[str]:
-    bullets: List[str] = []
+    if "reorder" in q or "priority" in q or "sku" in q:
+        if not reorder_df.empty and "recommended_reorder_qty" in reorder_df.columns:
+            tmp = reorder_df.copy()
+            tmp["recommended_reorder_qty"] = pd.to_numeric(tmp["recommended_reorder_qty"], errors="coerce")
+            tmp = tmp.dropna(subset=["recommended_reorder_qty"]).sort_values("recommended_reorder_qty", ascending=False)
+            if not tmp.empty:
+                label_col = "sku_id" if "sku_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else None)
+                if label_col:
+                    return f"The top reorder priority is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0]['recommended_reorder_qty']))} recommended units."
+        return "No reorder priority can be identified under the current filters."
 
-    if not reorder_df.empty and "recommended_reorder_qty" in reorder_df.columns:
-        tmp = reorder_df.copy()
-        tmp["recommended_reorder_qty"] = pd.to_numeric(tmp["recommended_reorder_qty"], errors="coerce")
-        tmp = tmp.dropna(subset=["recommended_reorder_qty"]).sort_values("recommended_reorder_qty", ascending=False)
-        if not tmp.empty:
-            label_col = "sku_id" if "sku_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else None)
-            if label_col is not None:
-                bullets.append(
-                    f"Top reorder priority is {tmp.iloc[0][label_col]} with {format_kpi(float(tmp.iloc[0]['recommended_reorder_qty']))} recommended units."
-                )
-
-    if not site_df.empty:
-        sort_col = "projected_value_index" if "projected_value_index" in site_df.columns else None
-        if sort_col is not None:
+    if "site" in q or "opportunity" in q:
+        if not site_df.empty and "projected_value_index" in site_df.columns:
             tmp = site_df.copy()
-            tmp[sort_col] = pd.to_numeric(tmp[sort_col], errors="coerce")
-            tmp = tmp.dropna(subset=[sort_col]).sort_values(sort_col, ascending=False)
+            tmp["projected_value_index"] = pd.to_numeric(tmp["projected_value_index"], errors="coerce")
+            tmp = tmp.dropna(subset=["projected_value_index"]).sort_values("projected_value_index", ascending=False)
             if not tmp.empty:
                 label_col = "site_id" if "site_id" in tmp.columns else ("store_id" if "store_id" in tmp.columns else ("region" if "region" in tmp.columns else None))
-                if label_col is not None:
-                    bullets.append(
-                        f"Top site opportunity is {tmp.iloc[0][label_col]} with projected value {format_kpi(float(tmp.iloc[0][sort_col]))}."
-                    )
+                if label_col:
+                    return f"The top site opportunity is {tmp.iloc[0][label_col]} with projected value {format_kpi(float(tmp.iloc[0]['projected_value_index']))}."
+        return "No site opportunity can be identified under the current filters."
 
-    if not bullets:
-        bullets.append("No inventory or site-selection rows are available under the current filters.")
-    return bullets
+    return "Try asking for the top reorder priority or the top site opportunity."
 
 
-def summarize_monitoring_page(
+def answer_monitoring_question(
     drift_df: pd.DataFrame,
     retrain_df: pd.DataFrame,
     audit_df: pd.DataFrame,
-) -> List[str]:
-    bullets: List[str] = []
+    question: str,
+) -> str:
+    q = question.lower().strip()
 
-    if not drift_df.empty:
-        bullets.append(f"Drift monitor currently shows {len(drift_df)} rows in scope.")
-        if "psi" in drift_df.columns:
-            psi_series = pd.to_numeric(drift_df["psi"], errors="coerce").dropna()
-            if not psi_series.empty:
-                bullets.append(f"Highest PSI currently visible is {format_kpi(float(psi_series.max()))}.")
+    if "drift" in q or "elevated" in q or "psi" in q:
+        if not drift_df.empty:
+            if "psi" in drift_df.columns:
+                psi_series = pd.to_numeric(drift_df["psi"], errors="coerce").dropna()
+                if not psi_series.empty:
+                    max_psi = float(psi_series.max())
+                    return f"The highest PSI in the current filtered view is {format_kpi(max_psi)}."
+            return f"Drift monitoring currently has {len(drift_df)} rows in scope."
+        return "No drift data is available under the current filters."
 
-    if not retrain_df.empty:
-        bullets.append(f"Retraining status currently has {len(retrain_df)} rows in scope.")
+    if "retraining" in q or "status" in q:
+        if not retrain_df.empty:
+            return f"Retraining status currently contains {len(retrain_df)} rows under the active filters."
+        return "No retraining status rows are available under the current filters."
 
-    if not audit_df.empty:
-        bullets.append(f"Retraining audit currently has {len(audit_df)} rows in scope.")
+    if "audit" in q:
+        if not audit_df.empty:
+            return f"Retraining audit currently contains {len(audit_df)} rows under the active filters."
+        return "No retraining audit rows are available under the current filters."
 
-    if not bullets:
-        bullets.append("No monitoring rows are available under the current filters.")
-    return bullets
+    return "Try asking whether drift is elevated, what the retraining status is, or how many audit rows are in scope."
+
 
 def build_forecast_kpis(df: pd.DataFrame, label_prefix: str) -> List[tuple[str, str, str]]:
     if df.empty:
@@ -778,12 +892,10 @@ def build_forecast_kpis(df: pd.DataFrame, label_prefix: str) -> List[tuple[str, 
             (f"{label_prefix} Rows", "0", "slate-card"),
             (f"{label_prefix} Units", "0", "slate-card"),
         ]
-
     rows = format_kpi(float(len(df)))
     units = "0"
     if "forecast_units" in df.columns:
         units = format_kpi(float(pd.to_numeric(df["forecast_units"], errors="coerce").fillna(0).sum()))
-
     return [
         (f"{label_prefix} Rows", rows, "blue-card"),
         (f"{label_prefix} Units", units, "green-card"),
@@ -798,7 +910,6 @@ def build_monitoring_kpis(
     drift_rows = format_kpi(float(len(drift_df))) if not drift_df.empty else "0"
     retrain_rows = format_kpi(float(len(retrain_df))) if not retrain_df.empty else "0"
     audit_rows = format_kpi(float(len(audit_df))) if not audit_df.empty else "0"
-
     return [
         ("Drift Rows", drift_rows, "amber-card"),
         ("Retraining Rows", retrain_rows, "purple-card"),
@@ -813,60 +924,93 @@ def build_inventory_kpis(reorder_df: pd.DataFrame, site_df: pd.DataFrame) -> Lis
         reorder_qty = format_kpi(
             float(pd.to_numeric(reorder_df["recommended_reorder_qty"], errors="coerce").fillna(0).sum())
         )
-
     site_rows = format_kpi(float(len(site_df))) if not site_df.empty else "0"
-
     return [
         ("Reorder Rows", reorder_rows, "amber-card"),
         ("Reorder Qty", reorder_qty, "green-card"),
         ("Site Rows", site_rows, "blue-card"),
     ]
 
-def render_empty_state(title: str, filters: Dict[str, str]) -> None:
-    if filters:
-        applied = ", ".join([f"{k}={v}" for k, v in filters.items()])
-        st.info(f"No {title.lower()} rows match the current filters: {applied}.")
-    else:
-        st.info(f"No data available for {title}.")
+
+def active_filter_dict(
+    region_filter: str,
+    store_filter: str,
+    department_filter: str,
+    category_filter: str,
+    sku_filter: str,
+    brand_filter: str,
+) -> Dict[str, str]:
+    filters = {
+        "Region": region_filter,
+        "Store": store_filter,
+        "Department": department_filter,
+        "Category": category_filter,
+        "SKU": sku_filter,
+        "Brand": brand_filter,
+    }
+    return {k: v for k, v in filters.items() if v != "All"}
 
 
-def render_top_chart(
-    df: pd.DataFrame,
-    category_candidates: List[str],
-    value_col: str,
-    title: str,
-    top_n: int = 10,
-) -> None:
-    if df.empty or value_col not in df.columns:
-        st.info(f"No chart data available for {title}.")
+def render_active_filters(filters: Dict[str, str]) -> None:
+    if not filters:
         return
+    chips = "".join([f"<span class='filter-chip'>{k}: {v}</span>" for k, v in filters.items()])
+    st.markdown(
+        f"""
+        <div class="filter-chip-box">
+            <div class="filter-chip-title">Active Filters</div>
+            {chips}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    category_col = None
-    for col in category_candidates:
-        if col in df.columns:
-            category_col = col
-            break
 
-    if category_col is None:
-        st.info(f"No valid category column available for {title}.")
-        return
+def page_filter_frames(page_name: str) -> List[pd.DataFrame]:
+    mapping = {
+        "Overview": [
+            exec_df,
+            model_df,
+            store_df,
+            dept_df,
+            region_df,
+            brand_df,
+            reorder_df,
+            drift_df,
+            retrain_df,
+            retrain_audit_df,
+            agent_df,
+            watch_df,
+            maturity_df,
+            site_df,
+        ],
+        "Executive Summary": [exec_df],
+        "Model Comparison": [model_df],
+        "Forecasts": [store_df, dept_df, region_df, brand_df],
+        "Inventory & Actions": [reorder_df, site_df],
+        "Monitoring": [drift_df, retrain_df, retrain_audit_df],
+        "Agent & Watchlist": [agent_df, watch_df],
+        "Pipeline Maturity": [maturity_df],
+        "Data Browser": [
+            exec_df,
+            model_df,
+            store_df,
+            dept_df,
+            region_df,
+            brand_df,
+            reorder_df,
+            drift_df,
+            retrain_df,
+            retrain_audit_df,
+            agent_df,
+            watch_df,
+            maturity_df,
+            site_df,
+        ],
+        "Explainers": [],
+    }
+    return mapping.get(page_name, [])
 
-    plot_df = df[[category_col, value_col]].copy()
-    plot_df[value_col] = pd.to_numeric(plot_df[value_col], errors="coerce")
-    plot_df = plot_df.dropna().sort_values(value_col, ascending=False).head(top_n)
-
-    if plot_df.empty:
-        st.info(f"No plottable rows available for {title}.")
-        return
-
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.bar(plot_df[category_col].astype(str), plot_df[value_col])
-    ax.set_title(title)
-    ax.set_xlabel(category_col)
-    ax.set_ylabel(value_col)
-    ax.tick_params(axis="x", rotation=45)
-    fig.tight_layout()
-    st.pyplot(fig)
 
 def render_explainers() -> None:
     st.markdown(
@@ -938,90 +1082,8 @@ def render_explainers() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def active_filter_dict(
-    region_filter: str,
-    store_filter: str,
-    department_filter: str,
-    category_filter: str,
-    sku_filter: str,
-    brand_filter: str,
-) -> Dict[str, str]:
-    filters = {
-        "Region": region_filter,
-        "Store": store_filter,
-        "Department": department_filter,
-        "Category": category_filter,
-        "SKU": sku_filter,
-        "Brand": brand_filter,
-    }
-    return {k: v for k, v in filters.items() if v != "All"}
-
-
-def render_active_filters(filters: Dict[str, str]) -> None:
-    if not filters:
-        return
-    chips = "".join(
-        [f"<span class='filter-chip'>{k}: {v}</span>" for k, v in filters.items()]
-    )
-    st.markdown(
-        f"""
-        <div class="filter-chip-box">
-            <div class="filter-chip-title">Active Filters</div>
-            {chips}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def page_filter_frames(page_name: str) -> List[pd.DataFrame]:
-    mapping = {
-        "Overview": [
-            exec_df,
-            model_df,
-            store_df,
-            dept_df,
-            region_df,
-            brand_df,
-            reorder_df,
-            drift_df,
-            retrain_df,
-            retrain_audit_df,
-            agent_df,
-            watch_df,
-            maturity_df,
-            site_df,
-        ],
-        "Executive Summary": [exec_df],
-        "Model Comparison": [model_df],
-        "Forecasts": [store_df, dept_df, region_df, brand_df],
-        "Inventory & Actions": [reorder_df, site_df],
-        "Monitoring": [drift_df, retrain_df, retrain_audit_df],
-        "Agent & Watchlist": [agent_df, watch_df],
-        "Pipeline Maturity": [maturity_df],
-        "Data Browser": [
-            exec_df,
-            model_df,
-            store_df,
-            dept_df,
-            region_df,
-            brand_df,
-            reorder_df,
-            drift_df,
-            retrain_df,
-            retrain_audit_df,
-            agent_df,
-            watch_df,
-            maturity_df,
-            site_df,
-        ],
-        "Explainers": [],
-    }
-    return mapping.get(page_name, [])
-
-
 # -------------------------------------------------
-# Single-source original CSV loading
+# Data loading
 # -------------------------------------------------
 exec_df = load_named_csv("dashboard_executive_summary.csv")
 model_df = load_named_csv("dashboard_model_comparison.csv")
@@ -1036,7 +1098,19 @@ reorder_df = load_named_csv("inventory_recommendations.csv")
 site_df = load_any_csv(["optimized_site_selection.csv", "site_selection_rankings.csv"])
 agent_df = load_named_csv("agent_answers.csv")
 watch_df = load_named_csv("store_watchlist.csv")
+
 maturity_df = load_named_csv("dashboard_pipeline_maturity.csv")
+
+# Fabric-ready governance artifacts
+fabric_catalog_df = load_named_csv("fabric_data_product_catalog.csv")
+fabric_quality_df = load_named_csv("fabric_quality_gates.csv")
+fabric_thresholds_df = load_named_csv("fabric_decision_thresholds.csv")
+fabric_monitoring_df = load_named_csv("fabric_metric_monitoring_summary.csv")
+
+# n8n-ready workflow handoff artifacts
+n8n_action_queue_df = load_named_csv("n8n_action_queue.csv")
+n8n_workflow_log_df = load_named_csv("n8n_workflow_log.csv")
+
 
 dataset_guardrail_status = enforce_required_datasets(strict=False)
 
@@ -1055,8 +1129,18 @@ browser_tables: Dict[str, pd.DataFrame] = {
     "agent_answers.csv": agent_df,
     "store_watchlist.csv": watch_df,
     "dashboard_pipeline_maturity.csv": maturity_df,
-}
 
+    # Fabric-ready governance artifacts
+    "fabric_data_product_catalog.csv": fabric_catalog_df,
+    "fabric_quality_gates.csv": fabric_quality_df,
+    "fabric_decision_thresholds.csv": fabric_thresholds_df,
+    "fabric_metric_monitoring_summary.csv": fabric_monitoring_df,
+
+    # n8n-ready workflow handoff artifacts
+    "n8n_action_queue.csv": n8n_action_queue_df,
+    "n8n_workflow_log.csv": n8n_workflow_log_df,
+
+}
 
 # -------------------------------------------------
 # Hero
@@ -1080,16 +1164,17 @@ st.markdown(
 NAV_OPTIONS = [
     "Overview",
     "Executive Summary",
+    "Trust Infrastructure",
     "Model Comparison",
     "Forecasts",
     "Inventory & Actions",
     "Monitoring",
+    "Workflow Automation",
     "Agent & Watchlist",
     "Pipeline Maturity",
     "Data Browser",
     "Explainers",
 ]
-
 enforce_required_sections(NAV_OPTIONS)
 
 st.sidebar.title("Decision Modules")
@@ -1121,7 +1206,6 @@ current_filters = active_filter_dict(
     brand_filter,
 )
 
-# Filtered frames
 exec_df_f = apply_filters(exec_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
 model_df_f = apply_filters(model_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
 store_df_f = apply_filters(store_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
@@ -1136,7 +1220,6 @@ site_df_f = apply_filters(site_df, region_filter, store_filter, department_filte
 agent_df_f = apply_filters(agent_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
 watch_df_f = apply_filters(watch_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
 maturity_df_f = apply_filters(maturity_df, region_filter, store_filter, department_filter, category_filter, sku_filter, brand_filter)
-
 
 # -------------------------------------------------
 # Pages
@@ -1155,12 +1238,8 @@ if page == "Overview":
             "watch",
         )
     else:
-        status_box(
-            "Dashboard loaded successfully from the original CSV source.",
-            "good",
-        )
+        status_box("Dashboard loaded successfully from the original CSV source.", "good")
 
-    kpi_cols = st.columns(4)
     kpi_payloads: List[tuple[str, str, str]] = []
 
     if not exec_df_f.empty:
@@ -1195,12 +1274,9 @@ if page == "Overview":
     while len(kpi_payloads) < 4:
         kpi_payloads.append((f"Metric {len(kpi_payloads)+1}", "N/A", "slate-card"))
 
-    for col, (label, value, css) in zip(kpi_cols, kpi_payloads):
-        with col:
-            render_kpi_card(label, value, css)
+    render_kpi_row(kpi_payloads[:4])
 
     left, right = st.columns([1.2, 1.8])
-
     with left:
         st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
         st.markdown("**System scope**")
@@ -1240,6 +1316,52 @@ elif page == "Executive Summary":
     render_active_filters(current_filters)
     render_dataframe_panel("Executive Summary", exec_df_f)
 
+
+# -------------------------------------------------
+# Trust Infrastructure
+# -------------------------------------------------
+elif page == "Trust Infrastructure":
+    st.markdown("## MS Fabric-Ready Trust Infrastructure")
+
+    st.warning(
+        "Honest boundary: this page visualizes Fabric-ready governance artifacts. "
+        "It does not prove live Microsoft Fabric execution unless Fabric workspace evidence, "
+        "pipeline run history, or service logs are provided."
+    )
+
+    st.markdown("""
+**Purpose:** This layer answers whether leaders can trust the numbers.
+
+It focuses on:
+- data product cataloging
+- quality gates
+- decision thresholds
+- metric monitoring
+- auditability
+- evidence-based decision support
+""")
+
+    fabric_hits = {
+        name: df for name, df in browser_tables.items()
+        if "fabric" in name.lower()
+        or "quality_gate" in name.lower()
+        or "decision_threshold" in name.lower()
+        or "metric_monitor" in name.lower()
+        or "data_product" in name.lower()
+    }
+
+    if not fabric_hits:
+        st.info("No Fabric-ready governance artifacts were found.")
+    else:
+        selected = st.selectbox(
+            "Choose a Fabric/governance artifact",
+            list(fabric_hits.keys()),
+            key="fabric_artifact_select"
+        )
+        st.caption(f"Source: {selected}")
+        st.dataframe(fabric_hits[selected], use_container_width=True, hide_index=True)
+
+
 elif page == "Model Comparison":
     st.markdown("<div class='section-title'>Model Comparison</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
@@ -1248,13 +1370,26 @@ elif page == "Model Comparison":
     best_mae = "N/A"
     if not model_df_f.empty and "mae" in model_df_f.columns:
         best_mae = format_kpi(float(pd.to_numeric(model_df_f["mae"], errors="coerce").min()))
-        render_kpi_row([
+
+    render_kpi_row([
         ("Model Rows", model_rows, "blue-card"),
         ("Best MAE", best_mae, "green-card"),
     ])
 
     render_decision_summary("Decision Summary", summarize_model_page(model_df_f))
     render_decision_narrative("Decision Narrative", narrative_model_page(model_df_f))
+    render_dashboard_qa(
+        "Ask the Dashboard",
+        ["Which model is best?", "Which model has the lowest MAE?"],
+        lambda q: answer_model_question(model_df_f, q),
+        "model_page",
+    )
+    render_snapshot_download(
+        "Model Comparison",
+        current_filters,
+        narrative_model_page(model_df_f),
+        "model_comparison_snapshot.txt",
+    )
     render_download_button(
         "Download Model Comparison CSV",
         model_df_f,
@@ -1270,6 +1405,7 @@ elif page == "Forecasts":
     render_kpi_row(build_forecast_kpis(region_df_f, "Region"))
     render_kpi_row(build_forecast_kpis(dept_df_f, "Department"))
     render_kpi_row(build_forecast_kpis(brand_df_f, "Brand"))
+
     render_decision_summary(
         "Decision Summary",
         summarize_forecast_page(store_df_f, dept_df_f, region_df_f, brand_df_f),
@@ -1277,6 +1413,23 @@ elif page == "Forecasts":
     render_decision_narrative(
         "Decision Narrative",
         narrative_forecast_page(store_df_f, dept_df_f, region_df_f, brand_df_f),
+    )
+    render_dashboard_qa(
+        "Ask the Dashboard",
+        [
+            "What is the highest forecasted store?",
+            "What is the highest forecasted region?",
+            "What is the highest forecasted department?",
+            "What is the highest forecasted brand?",
+        ],
+        lambda q: answer_forecast_question(store_df_f, dept_df_f, region_df_f, brand_df_f, q),
+        "forecast_page",
+    )
+    render_snapshot_download(
+        "Forecasts",
+        current_filters,
+        narrative_forecast_page(store_df_f, dept_df_f, region_df_f, brand_df_f),
+        "forecasts_snapshot.txt",
     )
 
     dl1, dl2, dl3, dl4 = st.columns(4)
@@ -1290,45 +1443,23 @@ elif page == "Forecasts":
         render_download_button("Download Brand Forecast", brand_df_f, "brand_forecast_filtered.csv")
 
     col1, col2 = st.columns(2)
-
     with col1:
         render_dataframe_panel("Store Forecast", store_df_f, sort_col="forecast_units", ascending=False)
-        render_top_chart(
-            store_df_f,
-            ["store_id", "store", "site_id"],
-            "forecast_units",
-            "Top Store Forecasts",
-        )
-
+        render_top_chart(store_df_f, ["store_id", "store", "site_id"], "forecast_units", "Top Store Forecasts")
         render_dataframe_panel("Region Forecast", region_df_f, sort_col="forecast_units", ascending=False)
-        render_top_chart(
-            region_df_f,
-            ["region"],
-            "forecast_units",
-            "Top Region Forecasts",
-        )
+        render_top_chart(region_df_f, ["region"], "forecast_units", "Top Region Forecasts")
 
     with col2:
         render_dataframe_panel("Department Forecast", dept_df_f, sort_col="forecast_units", ascending=False)
-        render_top_chart(
-            dept_df_f,
-            ["department", "category"],
-            "forecast_units",
-            "Top Department Forecasts",
-        )
-
+        render_top_chart(dept_df_f, ["department", "category"], "forecast_units", "Top Department Forecasts")
         render_dataframe_panel("Brand Forecast", brand_df_f, sort_col="forecast_units", ascending=False)
-        render_top_chart(
-            brand_df_f,
-            ["brand"],
-            "forecast_units",
-            "Top Brand Forecasts",
-        )
-        
+        render_top_chart(brand_df_f, ["brand"], "forecast_units", "Top Brand Forecasts")
+
 elif page == "Inventory & Actions":
     st.markdown("<div class='section-title'>Inventory & Actions</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
     render_kpi_row(build_inventory_kpis(reorder_df_f, site_df_f))
+
     render_decision_summary(
         "Decision Summary",
         summarize_inventory_page(reorder_df_f, site_df_f),
@@ -1336,6 +1467,18 @@ elif page == "Inventory & Actions":
     render_decision_narrative(
         "Decision Narrative",
         narrative_inventory_page(reorder_df_f, site_df_f),
+    )
+    render_dashboard_qa(
+        "Ask the Dashboard",
+        ["What is the top reorder priority?", "What is the top site opportunity?"],
+        lambda q: answer_inventory_question(reorder_df_f, site_df_f, q),
+        "inventory_page",
+    )
+    render_snapshot_download(
+        "Inventory & Actions",
+        current_filters,
+        narrative_inventory_page(reorder_df_f, site_df_f),
+        "inventory_actions_snapshot.txt",
     )
 
     dl1, dl2 = st.columns(2)
@@ -1364,7 +1507,6 @@ elif page == "Inventory & Actions":
         )
 
     sort_col = "projected_value_index" if "projected_value_index" in site_df_f.columns else None
-
     if site_df_f.empty:
         render_empty_state("Optimized Site Selection", current_filters)
     else:
@@ -1381,6 +1523,7 @@ elif page == "Monitoring":
     st.markdown("<div class='section-title'>Monitoring</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
     render_kpi_row(build_monitoring_kpis(drift_df_f, retrain_df_f, retrain_audit_df_f))
+
     render_decision_summary(
         "Decision Summary",
         summarize_monitoring_page(drift_df_f, retrain_df_f, retrain_audit_df_f),
@@ -1388,6 +1531,22 @@ elif page == "Monitoring":
     render_decision_narrative(
         "Decision Narrative",
         narrative_monitoring_page(drift_df_f, retrain_df_f, retrain_audit_df_f),
+    )
+    render_dashboard_qa(
+        "Ask the Dashboard",
+        [
+            "Is drift elevated?",
+            "What is the retraining status?",
+            "How many audit rows are in scope?",
+        ],
+        lambda q: answer_monitoring_question(drift_df_f, retrain_df_f, retrain_audit_df_f, q),
+        "monitoring_page",
+    )
+    render_snapshot_download(
+        "Monitoring",
+        current_filters,
+        narrative_monitoring_page(drift_df_f, retrain_df_f, retrain_audit_df_f),
+        "monitoring_snapshot.txt",
     )
 
     dl1, dl2, dl3 = st.columns(3)
@@ -1431,15 +1590,74 @@ elif page == "Monitoring":
 
     render_dataframe_panel("Retraining Audit", retrain_audit_df_f)
 
+
+# -------------------------------------------------
+# Workflow Automation
+# -------------------------------------------------
+elif page == "Workflow Automation":
+    st.markdown("## n8n-Ready Workflow Automation")
+
+    st.warning(
+        "Honest boundary: n8n should operationalize decision outputs. "
+        "It should not replace the ML pipeline, MLflow, Streamlit dashboard, "
+        "Microsoft Fabric, or enterprise governance."
+    )
+
+    st.markdown("""
+**Best placement:** after the backend pipeline exports decision-ready outputs.
+
+Recommended flow:
+
+forecast outputs -> drift monitor -> retraining status -> inventory recommendations -> store watchlist -> executive summary -> n8n handoff -> alerts / approvals / reports / tickets
+
+**Recommended triggers:**
+
+- drift_monitor.csv -> alert analyst when drift is detected
+- retraining_status.csv -> create model-review task
+- inventory_recommendations.csv -> send urgent reorder alert
+- store_watchlist.csv -> route high-error stores for review
+- promotion_analytics.csv -> notify commercial team when margin lift is negative
+- dashboard_executive_summary.csv -> send scheduled executive summary
+- n8n_decision_payload.json -> single control payload for workflow routing
+""")
+
+    n8n_hits = {
+        name: df for name, df in browser_tables.items()
+        if "n8n" in name.lower()
+        or "workflow" in name.lower()
+        or "action_queue" in name.lower()
+        or "handoff" in name.lower()
+    }
+
+    if not n8n_hits:
+        st.info("No n8n-ready workflow artifacts were found.")
+    else:
+        selected = st.selectbox(
+            "Choose an n8n/workflow artifact",
+            list(n8n_hits.keys()),
+            key="n8n_artifact_select"
+        )
+        st.caption(f"Source: {selected}")
+        st.dataframe(n8n_hits[selected], use_container_width=True, hide_index=True)
+
+
 elif page == "Agent & Watchlist":
     st.markdown("<div class='section-title'>Agent & Watchlist</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
 
     dl1, dl2 = st.columns(2)
     with dl1:
-        render_download_button("Download Agent Answers", agent_df_f, "agent_answers_filtered.csv")
+        render_download_button(
+            "Download Agent Answers",
+            agent_df_f,
+            "agent_answers_filtered.csv",
+        )
     with dl2:
-        render_download_button("Download Store Watchlist", watch_df_f, "store_watchlist_filtered.csv")
+        render_download_button(
+            "Download Store Watchlist",
+            watch_df_f,
+            "store_watchlist_filtered.csv",
+        )
 
     render_dataframe_panel("Agent Answers", agent_df_f)
     render_dataframe_panel("Store Watchlist", watch_df_f)
@@ -1475,7 +1693,10 @@ elif page == "Data Browser":
         "dashboard_pipeline_maturity.csv": maturity_df_f,
     }
 
-    selected_table = st.selectbox("Select a restored table", list(filtered_browser_tables.keys()))
+    selected_table = st.selectbox(
+        "Select a restored table",
+        list(filtered_browser_tables.keys()),
+    )
     df = filtered_browser_tables[selected_table]
 
     render_dataframe_panel(f"Preview: {selected_table}", df)
@@ -1501,5 +1722,5 @@ elif page == "Explainers":
 # -------------------------------------------------
 st.markdown("---")
 st.caption(
-    "Retail Decision Support System • Step 4A Page-Aware Filters • Original CSV Source Mode • Explainable Dashboard"
+    "Retail Decision Support System - Guardrail-Preserved Original CSV Mode - KPI + Summary + Narrative + Q&A + Export"
 )

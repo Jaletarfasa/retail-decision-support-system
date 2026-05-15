@@ -1,0 +1,7 @@
+﻿workflow_id,trigger_source,condition,action,human_review_required,status
+wf_drift_review,drift_monitor.csv,any drift flag equals 1,Notify analyst and create review task,Yes,Defined
+wf_retraining_review,retraining_status.csv,retraining_recommended equals 1,Route retraining review to model owner,Yes,Defined
+wf_inventory_alert,inventory_recommendations.csv,urgent_reorder_flag equals 1,Send reorder alert to operations lead,Yes,Defined
+wf_store_watchlist,store_watchlist.csv,store appears in watchlist,Send store performance review summary,Yes,Defined
+wf_promotion_review,promotion_analytics.csv,promo margin lift is negative,Notify commercial team for review,Yes,Defined
+wf_exec_report,dashboard_executive_summary.csv,new summary generated,Send scheduled executive summary,No,Defined

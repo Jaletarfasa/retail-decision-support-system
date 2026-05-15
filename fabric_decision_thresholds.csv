@@ -1,0 +1,5 @@
+﻿metric,threshold,action_required,human_review_required
+retraining_recommended,1,Review model drift and refresh posture,Yes
+urgent_reorder_count,>0,Review inventory action queue,Yes
+negative_promo_margin_lift,<0,Review promotion profitability,Yes
+high_forecast_error_store_count,>0,Review store watchlist,Yes

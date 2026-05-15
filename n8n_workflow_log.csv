@@ -1,0 +1,6 @@
+﻿event_time,workflow_id,event,status,note
+2026-05-15T12:45:00,wf_drift_review,workflow_defined,ready,Local demo workflow definition created
+2026-05-15T12:45:00,wf_retraining_review,workflow_defined,ready,Local demo workflow definition created
+2026-05-15T12:45:00,wf_inventory_alert,workflow_defined,ready,Local demo workflow definition created
+2026-05-15T12:45:00,wf_store_watchlist,workflow_defined,ready,Local demo workflow definition created
+2026-05-15T12:45:00,wf_exec_report,workflow_defined,ready,Local demo workflow definition created

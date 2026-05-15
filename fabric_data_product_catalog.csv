@@ -1,0 +1,5 @@
+﻿artifact_name,layer,purpose,status,honest_boundary
+fabric_data_product_catalog,Trusted data infrastructure,Catalogs data products and dashboard-ready outputs,Prototype artifact,Local CSV evidence only; not live Fabric service evidence
+fabric_quality_gates,Trusted data infrastructure,Documents validation checks before decision outputs are trusted,Prototype artifact,Quality logic is documented locally
+fabric_decision_thresholds,Decision governance,Defines when metrics require attention or escalation,Prototype artifact,Thresholds need stakeholder validation before production use
+fabric_metric_monitoring_summary,Monitoring,Summarizes metric drift and risk concentration,Prototype artifact,Monitoring is local/demo unless connected to Fabric logs
