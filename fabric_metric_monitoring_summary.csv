@@ -1,0 +1,5 @@
+﻿metric,current_status,interpretation
+data_quality_gate,Defined,Local governance artifact exists
+metric_drift_monitoring,Defined,Requires actual drift output for operational use
+decision_thresholds,Defined,Threshold logic available for review
+auditability,Partial,Local files provide evidence but not Fabric service logs

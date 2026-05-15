@@ -1,0 +1,6 @@
+﻿gate_name,description,required_for_release,status
+data_completeness,Required tables must not be empty,Yes,Defined
+positive_values,Prices and quantities must pass basic validity checks,Yes,Defined
+schema_check,Expected columns must exist before dashboard release,Yes,Defined
+drift_review,Metric drift must be reviewed before relying on outputs,Yes,Defined
+human_review,High-risk recommendations require human approval,Yes,Defined
