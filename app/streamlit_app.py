@@ -62,6 +62,12 @@ REQUIRED_SECTIONS = [
         "Workflow Automation",
     "Agent & Watchlist",
     "Pipeline Maturity",
+    "API Connectors",
+    "Real Agents",
+    "Agent Memory",
+    "Evidence Boundary",
+    "Fabric Readiness",
+    "Fabric Live Demo",
     "Data Browser",
     "Explainers",
 ]
@@ -72,6 +78,19 @@ from typing import Callable, Dict, List, Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+
+# Fabric live demo panel import
+try:
+    from app_modules.fabric_live_demo_panel import render_fabric_live_demo_panel
+except Exception:
+    try:
+        import sys
+        from pathlib import Path
+        sys.path.append(str(Path(__file__).resolve().parents[1]))
+        from app_modules.fabric_live_demo_panel import render_fabric_live_demo_panel
+    except Exception:
+        render_fabric_live_demo_panel = None
+
 
 try:
     from app.explainers import list_explainers, load_explainer_markup
@@ -96,6 +115,12 @@ PROJECT_ROOT = APP_DIR.parent
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 DATA_DIR = PROJECT_ROOT / "data"
 ASSETS_DIR = PROJECT_ROOT / "assets" / "animations"
+
+# Enterprise upgrade output locations
+ENTERPRISE_GOLD_DIR = PROJECT_ROOT / "data" / "enterprise_upgrade" / "gold"
+ENTERPRISE_AUDIT_DIR = PROJECT_ROOT / "data" / "enterprise_upgrade" / "audit"
+FABRIC_NOTEBOOK_DIR = PROJECT_ROOT / "data" / "enterprise_upgrade" / "fabric_notebook"
+FABRIC_UPLOAD_DIR = PROJECT_ROOT / "data" / "enterprise_upgrade" / "fabric_bundle" / "retail_decision_support_upload"
 
 
 # -------------------------------------------------
@@ -243,6 +268,7 @@ def locate_named_csv(filename: str) -> Optional[Path]:
         PROJECT_ROOT / filename,
         APP_DIR / filename,
         OUTPUTS_DIR / filename,
+        ENTERPRISE_GOLD_DIR / filename,
         DATA_DIR / filename,
     ]:
         if candidate.exists():
@@ -430,6 +456,20 @@ def render_dataframe_panel(
         if sort_col and sort_col in df.columns:
             df = df.sort_values(sort_col, ascending=ascending)
         st.dataframe(df, width="stretch", hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_enterprise_table(title: str, filename: str, height: int = 360) -> None:
+    """Render enterprise/API/agent upgrade artifacts without replacing original dashboard sections."""
+    df = load_named_csv(filename)
+    st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+    st.markdown(f"**{title}**")
+    st.caption(f"Source file: {filename}")
+    if df.empty:
+        st.info(f"No data available for {filename}. Run the enterprise upgrade script and refresh the dashboard.")
+    else:
+        st.dataframe(df, width="stretch", hide_index=True, height=height)
+        render_download_button(f"Download {title}", df, filename.replace(".csv", "_filtered.csv"))
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1111,6 +1151,27 @@ fabric_monitoring_df = load_named_csv("fabric_metric_monitoring_summary.csv")
 n8n_action_queue_df = load_named_csv("n8n_action_queue.csv")
 n8n_workflow_log_df = load_named_csv("n8n_workflow_log.csv")
 
+# Enterprise upgrade: API, real-agent, memory, evidence, and Fabric-readiness artifacts
+api_connector_registry_df = load_named_csv("api_connector_registry.csv")
+api_ingestion_plan_df = load_named_csv("api_ingestion_plan.csv")
+api_call_audit_df = load_named_csv("api_call_audit.csv")
+api_security_checklist_df = load_named_csv("api_security_checklist.csv")
+api_integration_maturity_df = load_named_csv("api_integration_maturity.csv")
+
+real_agent_trace_df = load_named_csv("real_agent_trace.csv")
+real_agent_memory_df = load_named_csv("real_agent_memory.csv")
+real_agent_action_log_df = load_named_csv("real_agent_action_log.csv")
+real_agent_final_decisions_df = load_named_csv("real_agent_final_decisions.csv")
+agent_governance_report_df = load_named_csv("agent_governance_report.csv")
+agent_evidence_boundary_review_df = load_named_csv("agent_evidence_boundary_review.csv")
+agent_human_approval_queue_df = load_named_csv("agent_human_approval_queue.csv")
+agent_executive_narrative_df = load_named_csv("agent_executive_narrative.csv")
+
+agent_memory_core_df = load_named_csv("agent_memory_core.csv")
+agent_memory_episodic_df = load_named_csv("agent_memory_episodic.csv")
+agent_memory_procedural_df = load_named_csv("agent_memory_procedural.csv")
+agent_memory_index_df = load_named_csv("agent_memory_index.csv")
+
 
 dataset_guardrail_status = enforce_required_datasets(strict=False)
 
@@ -1139,6 +1200,29 @@ browser_tables: Dict[str, pd.DataFrame] = {
     # n8n-ready workflow handoff artifacts
     "n8n_action_queue.csv": n8n_action_queue_df,
     "n8n_workflow_log.csv": n8n_workflow_log_df,
+
+    # Enterprise API-ready connector artifacts
+    "api_connector_registry.csv": api_connector_registry_df,
+    "api_ingestion_plan.csv": api_ingestion_plan_df,
+    "api_call_audit.csv": api_call_audit_df,
+    "api_security_checklist.csv": api_security_checklist_df,
+    "api_integration_maturity.csv": api_integration_maturity_df,
+
+    # Real deterministic agent artifacts
+    "real_agent_trace.csv": real_agent_trace_df,
+    "real_agent_memory.csv": real_agent_memory_df,
+    "real_agent_action_log.csv": real_agent_action_log_df,
+    "real_agent_final_decisions.csv": real_agent_final_decisions_df,
+    "agent_governance_report.csv": agent_governance_report_df,
+    "agent_evidence_boundary_review.csv": agent_evidence_boundary_review_df,
+    "agent_human_approval_queue.csv": agent_human_approval_queue_df,
+    "agent_executive_narrative.csv": agent_executive_narrative_df,
+
+    # Three-tier agent memory artifacts
+    "agent_memory_core.csv": agent_memory_core_df,
+    "agent_memory_episodic.csv": agent_memory_episodic_df,
+    "agent_memory_procedural.csv": agent_memory_procedural_df,
+    "agent_memory_index.csv": agent_memory_index_df,
 
 }
 
@@ -1172,6 +1256,12 @@ NAV_OPTIONS = [
     "Workflow Automation",
     "Agent & Watchlist",
     "Pipeline Maturity",
+    "API Connectors",
+    "Real Agents",
+    "Agent Memory",
+    "Evidence Boundary",
+    "Fabric Readiness",
+    "Fabric Live Demo",
     "Data Browser",
     "Explainers",
 ]
@@ -1194,7 +1284,7 @@ brand_filter = st.sidebar.selectbox("Brand", page_filter_options["brand"], key=f
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Source mode**")
-st.sidebar.caption("Primary source: original flat CSV files")
+st.sidebar.caption("Primary source: original flat CSV files + enterprise upgrade outputs when available")
 st.sidebar.caption(f"Assets: {ASSETS_DIR}")
 
 current_filters = active_filter_dict(
@@ -1672,6 +1762,100 @@ elif page == "Pipeline Maturity":
     )
     render_dataframe_panel("Implementation Maturity", maturity_df_f)
 
+elif page == "API Connectors":
+    st.markdown("<div class='section-title'>API Connectors</div>", unsafe_allow_html=True)
+    st.warning(
+        "Honest boundary: this page shows an API-ready connector architecture and audit layer. "
+        "It does not prove live enterprise API integration unless authorized endpoints, credentials, schemas, and call logs exist."
+    )
+    render_enterprise_table("API Connector Registry", "api_connector_registry.csv")
+    render_enterprise_table("API Ingestion Plan", "api_ingestion_plan.csv")
+    render_enterprise_table("API Call Audit", "api_call_audit.csv")
+    render_enterprise_table("API Security Checklist", "api_security_checklist.csv")
+    render_enterprise_table("API Integration Maturity", "api_integration_maturity.csv")
+
+
+elif page == "Real Agents":
+    st.markdown("<div class='section-title'>Real Deterministic Agents</div>", unsafe_allow_html=True)
+    st.warning(
+        "Honest boundary: these are deterministic real-agent orchestration artifacts. "
+        "They observe, call tools, write memory/action logs, and produce decisions. "
+        "They do not autonomously execute business actions."
+    )
+    render_enterprise_table("Real Agent Trace", "real_agent_trace.csv")
+    render_enterprise_table("Real Agent Memory", "real_agent_memory.csv")
+    render_enterprise_table("Real Agent Action Log", "real_agent_action_log.csv")
+    render_enterprise_table("Real Agent Final Decisions", "real_agent_final_decisions.csv")
+    render_enterprise_table("Agent Governance Report", "agent_governance_report.csv")
+    render_enterprise_table("Human Approval Queue", "agent_human_approval_queue.csv")
+    render_enterprise_table("Executive Narrative Agent", "agent_executive_narrative.csv")
+
+
+elif page == "Agent Memory":
+    st.markdown("<div class='section-title'>Three-Tier Agent Memory</div>", unsafe_allow_html=True)
+    st.warning(
+        "Honest boundary: this is a local deterministic three-tier memory design. "
+        "It is not a production memory service, not Hermes Agent implementation, and not autonomous long-term enterprise memory."
+    )
+    render_enterprise_table("Core Memory", "agent_memory_core.csv")
+    render_enterprise_table("Episodic Memory", "agent_memory_episodic.csv")
+    render_enterprise_table("Procedural Memory", "agent_memory_procedural.csv")
+    render_enterprise_table("Memory Index", "agent_memory_index.csv")
+
+
+elif page == "Evidence Boundary":
+    st.markdown("<div class='section-title'>Evidence Boundary</div>", unsafe_allow_html=True)
+    st.warning(
+        "This page prevents overclaiming. Use it to distinguish synthetic/demo, public data, approved pilot data, "
+        "Fabric-ready, Fabric-executed, and production claims."
+    )
+    render_enterprise_table("Evidence Boundary Review", "agent_evidence_boundary_review.csv")
+    render_enterprise_table("Pipeline Maturity", "dashboard_pipeline_maturity.csv")
+    render_enterprise_table("Data Quality Audit", "data_quality_audit.csv")
+    render_enterprise_table("API Integration Maturity", "api_integration_maturity.csv")
+
+    claim_file = ENTERPRISE_AUDIT_DIR / "CLAIM_BOUNDARY.md"
+    if claim_file.exists():
+        st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+        st.markdown("**Claim Boundary Document**")
+        st.markdown(claim_file.read_text(encoding="utf-8"))
+        st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("No CLAIM_BOUNDARY.md file found. Run the enterprise upgrade script first.")
+
+
+elif page == "Fabric Readiness":
+    st.markdown("<div class='section-title'>Microsoft Fabric Readiness</div>", unsafe_allow_html=True)
+    st.warning(
+        "Honest boundary: this page shows Fabric-ready artifacts. It does not prove live Fabric execution "
+        "until the upload bundle is loaded into Microsoft Fabric and the generated notebook is run."
+    )
+    render_enterprise_table("Fabric/API Integration Maturity", "api_integration_maturity.csv")
+
+    st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+    st.markdown("**Fabric Upload Folder**")
+    st.code(str(FABRIC_UPLOAD_DIR))
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    notebook_file = FABRIC_NOTEBOOK_DIR / "fabric_retail_lakehouse_execution_cell.py"
+    st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
+    st.markdown("**Fabric Notebook Cell**")
+    if notebook_file.exists():
+        st.success("Fabric notebook cell found.")
+        with st.expander("View Fabric notebook cell"):
+            st.code(notebook_file.read_text(encoding="utf-8"), language="python")
+    else:
+        st.info("Fabric notebook cell not found. Run the enterprise upgrade script first.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+
+elif page == "Fabric Live Demo":
+    if render_fabric_live_demo_panel is None:
+        st.warning("Fabric Live Demo module is not available. Check app_modules/fabric_live_demo_panel.py.")
+    else:
+        render_fabric_live_demo_panel(project_root=".")
+
 elif page == "Data Browser":
     st.markdown("<div class='section-title'>Data Browser</div>", unsafe_allow_html=True)
     render_active_filters(current_filters)
@@ -1691,6 +1875,29 @@ elif page == "Data Browser":
         "agent_answers.csv": agent_df_f,
         "store_watchlist.csv": watch_df_f,
         "dashboard_pipeline_maturity.csv": maturity_df_f,
+
+        # Enterprise API-ready connector artifacts
+        "api_connector_registry.csv": api_connector_registry_df,
+        "api_ingestion_plan.csv": api_ingestion_plan_df,
+        "api_call_audit.csv": api_call_audit_df,
+        "api_security_checklist.csv": api_security_checklist_df,
+        "api_integration_maturity.csv": api_integration_maturity_df,
+
+        # Real deterministic agent artifacts
+        "real_agent_trace.csv": real_agent_trace_df,
+        "real_agent_memory.csv": real_agent_memory_df,
+        "real_agent_action_log.csv": real_agent_action_log_df,
+        "real_agent_final_decisions.csv": real_agent_final_decisions_df,
+        "agent_governance_report.csv": agent_governance_report_df,
+        "agent_evidence_boundary_review.csv": agent_evidence_boundary_review_df,
+        "agent_human_approval_queue.csv": agent_human_approval_queue_df,
+        "agent_executive_narrative.csv": agent_executive_narrative_df,
+
+        # Three-tier agent memory artifacts
+        "agent_memory_core.csv": agent_memory_core_df,
+        "agent_memory_episodic.csv": agent_memory_episodic_df,
+        "agent_memory_procedural.csv": agent_memory_procedural_df,
+        "agent_memory_index.csv": agent_memory_index_df,
     }
 
     selected_table = st.selectbox(
@@ -1722,5 +1929,5 @@ elif page == "Explainers":
 # -------------------------------------------------
 st.markdown("---")
 st.caption(
-    "Retail Decision Support System - Guardrail-Preserved Original CSV Mode - KPI + Summary + Narrative + Q&A + Export"
+    "Retail Decision Support System - Guardrail-Preserved Original CSV Mode + Enterprise API/Agent/Memory/Fabric-Ready Views"
 )
