@@ -1171,6 +1171,18 @@ agent_memory_core_df = load_named_csv("agent_memory_core.csv")
 agent_memory_episodic_df = load_named_csv("agent_memory_episodic.csv")
 agent_memory_procedural_df = load_named_csv("agent_memory_procedural.csv")
 agent_memory_index_df = load_named_csv("agent_memory_index.csv")
+# Schema-constrained typed agent memory artifacts
+schema_memory_validation_summary_df = load_named_csv("schema_agent_memory_validation_summary.csv")
+schema_memory_business_claims_df = load_named_csv("schema_agent_memory_business_claims.csv")
+schema_memory_model_runs_df = load_named_csv("schema_agent_memory_model_runs.csv")
+schema_memory_drift_signals_df = load_named_csv("schema_agent_memory_drift_signals.csv")
+schema_memory_inventory_actions_df = load_named_csv("schema_agent_memory_inventory_actions.csv")
+schema_memory_temporal_facts_df = load_named_csv("schema_agent_memory_temporal_facts.csv")
+schema_memory_edges_df = load_named_csv("schema_agent_memory_edges.csv")
+schema_memory_evidence_artifacts_df = load_named_csv("schema_agent_memory_evidence_artifacts.csv")
+schema_memory_validation_errors_df = load_named_csv("schema_agent_memory_validation_errors.csv")
+schema_memory_answer_examples_df = load_named_csv("schema_agent_memory_answer_examples.csv")
+
 
 
 dataset_guardrail_status = enforce_required_datasets(strict=False)
@@ -1223,6 +1235,18 @@ browser_tables: Dict[str, pd.DataFrame] = {
     "agent_memory_episodic.csv": agent_memory_episodic_df,
     "agent_memory_procedural.csv": agent_memory_procedural_df,
     "agent_memory_index.csv": agent_memory_index_df,
+
+    # Schema-constrained typed agent memory artifacts
+    "schema_agent_memory_validation_summary.csv": schema_memory_validation_summary_df,
+    "schema_agent_memory_business_claims.csv": schema_memory_business_claims_df,
+    "schema_agent_memory_model_runs.csv": schema_memory_model_runs_df,
+    "schema_agent_memory_drift_signals.csv": schema_memory_drift_signals_df,
+    "schema_agent_memory_inventory_actions.csv": schema_memory_inventory_actions_df,
+    "schema_agent_memory_temporal_facts.csv": schema_memory_temporal_facts_df,
+    "schema_agent_memory_edges.csv": schema_memory_edges_df,
+    "schema_agent_memory_evidence_artifacts.csv": schema_memory_evidence_artifacts_df,
+    "schema_agent_memory_validation_errors.csv": schema_memory_validation_errors_df,
+    "schema_agent_memory_answer_examples.csv": schema_memory_answer_examples_df,
 
 }
 
@@ -1803,6 +1827,25 @@ elif page == "Agent Memory":
     render_enterprise_table("Memory Index", "agent_memory_index.csv")
 
 
+    st.markdown("<div class='section-title'>Schema-Constrained Agent Memory</div>", unsafe_allow_html=True)
+    st.warning(
+        "Honest boundary: this is local schema-constrained typed memory generated from deterministic dashboard outputs. "
+        "It is not live Graphiti/Zep integration, not a live graph database, not live Fabric proof, "
+        "and not enterprise production memory."
+    )
+    render_enterprise_table("Schema Memory Validation Summary", "schema_agent_memory_validation_summary.csv")
+    render_enterprise_table("Business Claim Boundaries", "schema_agent_memory_business_claims.csv")
+    render_enterprise_table("Model Run Memory", "schema_agent_memory_model_runs.csv")
+    render_enterprise_table("Drift Signal Memory", "schema_agent_memory_drift_signals.csv")
+    render_enterprise_table("Inventory Action Memory", "schema_agent_memory_inventory_actions.csv")
+    render_enterprise_table("Temporal Facts", "schema_agent_memory_temporal_facts.csv")
+    render_enterprise_table("Typed Memory Edges", "schema_agent_memory_edges.csv")
+    render_enterprise_table("Evidence Artifacts", "schema_agent_memory_evidence_artifacts.csv")
+    render_enterprise_table("Validation Errors", "schema_agent_memory_validation_errors.csv")
+    render_enterprise_table("Answer Examples", "schema_agent_memory_answer_examples.csv")
+
+
+
 elif page == "Evidence Boundary":
     st.markdown("<div class='section-title'>Evidence Boundary</div>", unsafe_allow_html=True)
     st.warning(
@@ -1898,6 +1941,18 @@ elif page == "Data Browser":
         "agent_memory_episodic.csv": agent_memory_episodic_df,
         "agent_memory_procedural.csv": agent_memory_procedural_df,
         "agent_memory_index.csv": agent_memory_index_df,
+
+    # Schema-constrained typed agent memory artifacts
+    "schema_agent_memory_validation_summary.csv": schema_memory_validation_summary_df,
+    "schema_agent_memory_business_claims.csv": schema_memory_business_claims_df,
+    "schema_agent_memory_model_runs.csv": schema_memory_model_runs_df,
+    "schema_agent_memory_drift_signals.csv": schema_memory_drift_signals_df,
+    "schema_agent_memory_inventory_actions.csv": schema_memory_inventory_actions_df,
+    "schema_agent_memory_temporal_facts.csv": schema_memory_temporal_facts_df,
+    "schema_agent_memory_edges.csv": schema_memory_edges_df,
+    "schema_agent_memory_evidence_artifacts.csv": schema_memory_evidence_artifacts_df,
+    "schema_agent_memory_validation_errors.csv": schema_memory_validation_errors_df,
+    "schema_agent_memory_answer_examples.csv": schema_memory_answer_examples_df,
     }
 
     selected_table = st.selectbox(
