@@ -1,0 +1,6 @@
+region,actual_sales_28d,actual_units_28d,forecast_units_next_28d,forecast_sales_next_28d,forecast_status,source_type,claim_boundary
+Atlantic,476964.14,4646,4832.0,494440.31,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Ontario,576484.03,5508,6128.0,627984.63,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Prairie,851653.99,8143,7860.0,837626.4,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Quebec,946014.16,9016,9952.0,982696.39,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+West,1101193.82,10579,10330.0,1075605.35,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.

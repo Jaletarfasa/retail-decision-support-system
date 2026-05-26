@@ -1,0 +1,6 @@
+memory_tier,memory_key,memory_value,purpose,refresh_policy,claim_boundary
+core,project_identity,Retail Decision Support System,Always-on identity for the agent runtime.,Update only when the project scope changes.,Does not prove production by itself.
+core,source_type,synthetic,Controls allowable external claims.,Update each run.,Source type determines whether real-data claims are allowed.
+core,evidence_level,Enterprise-like synthetic simulation,Prevents overclaiming maturity.,Update each run.,Real enterprise integration or production deployment.
+core,allowed_claim,"Expanded a live retail decision-support demo with enterprise-like synthetic schemas, governance checks, and agent memory artifacts.","Safe wording for resume, LinkedIn, and project documentation.",Review before external use.,Real enterprise integration or production deployment.
+core,blocked_claim,Real enterprise integration or production deployment.,Words the system should not use without actual evidence.,Review when evidence changes.,Prevents hallucinated enterprise claims.

@@ -1,0 +1,12 @@
+metric,value,decision_note
+total_sales,48755748.67,Sales from generated or provided source data.
+total_units,470516.0,Units where available.
+gross_margin,17782002.92,Margin where available.
+num_stores,12,Stores in source.
+num_skus,150,SKUs/departments in source.
+model_rows,10,Model comparison rows.
+best_mae,2.85,Demo model metric; not production proof.
+drift_rows,5,Monitoring rows.
+retraining_rows,9,Retraining status rows.
+audit_rows,9,Retraining audit rows.
+source_type,synthetic,Claim boundary depends on source type.

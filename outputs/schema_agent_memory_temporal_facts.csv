@@ -1,0 +1,12 @@
+memory_id,entity_type,run_id,fact_type,subject,predicate,object_value,previous_value,evidence_id,valid_from_utc,valid_to_utc,superseded_by,is_current,claim_boundary
+FACT_c50100d9f498,TemporalFact,RUN_20260526T152031+0000,source,retail_decision_support_system,has_source_type,synthetic,,evidence_data_quality,2026-05-26T15:20:31+00:00,,,True,Source type controls allowable claims.
+FACT_51c197ce4a85,TemporalFact,RUN_20260526T152031+0000,model,current_run,best_ranked_model,lstm_gru_sequence,,evidence_model_comparison,2026-05-26T15:20:31+00:00,,,True,Best-ranked model is only current-run evidence.
+FACT_bce7c06b3f57,TemporalFact,RUN_20260526T152031+0000,model,current_run,best_reported_mae,2.85,,evidence_model_comparison,2026-05-26T15:20:31+00:00,,,True,"MAE is current output evidence, not production proof."
+FACT_41703a9547f0,TemporalFact,RUN_20260526T152031+0000,monitoring,current_run,drift_watch_count,4,,evidence_drift_monitor,2026-05-26T15:20:31+00:00,,,True,"Drift watch count supports review, not automatic retraining."
+FACT_0f95d43e3d65,TemporalFact,RUN_20260526T152031+0000,approval,current_run,approval_required_count,50,,evidence_inventory_recommendations,2026-05-26T15:20:31+00:00,,,True,Approval count supports human review queue.
+FACT_b1e05013d403,TemporalFact,RUN_20260526T152031+0000,quality,current_run,quality_fail_count,0,,evidence_data_quality,2026-05-26T15:20:31+00:00,,,True,Quality failures block stronger claims.
+FACT_e40ee97dfa50,TemporalFact,RUN_20260526T152031+0000,quality,current_run,quality_warning_count,0,,evidence_data_quality,2026-05-26T15:20:31+00:00,,,True,Quality warnings require review.
+FACT_99f7751815df,TemporalFact,RUN_20260526T152031+0000,fabric,fabric_live_demo,api_verified_workspace_rows,0,,evidence_fabric_live_proof,2026-05-26T15:20:31+00:00,,,True,Zero means no API workspace proof.
+FACT_ca1c46fdd6d7,TemporalFact,RUN_20260526T152031+0000,fabric,fabric_live_demo,api_verified_item_rows,0,,evidence_fabric_live_proof,2026-05-26T15:20:31+00:00,,,True,Zero means no API item proof.
+FACT_7dfa9205ce2d,TemporalFact,RUN_20260526T152031+0000,fabric,fabric_live_demo,registered_screenshot_rows,0,,evidence_fabric_live_proof,2026-05-26T15:20:31+00:00,,,True,Zero means no screenshot evidence.
+FACT_33bf8453f8c5,TemporalFact,RUN_20260526T152031+0000,production,retail_decision_support_system,production_claim_status,blocked,,evidence_data_quality,2026-05-26T15:20:31+00:00,,,True,Production is blocked unless controls and run evidence exist.

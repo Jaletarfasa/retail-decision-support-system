@@ -1,0 +1,2 @@
+agent_name,review_area,input_table,decision,risk_level,reason,required_human_action,claim_boundary,source_type
+Decision Risk Agent,inventory recommendations and drift/watch status,inventory_recommendations.csv; drift_monitor.csv,HUMAN_REVIEW_REQUIRED,High,3 high-priority inventory rows and 4 drift-watch rows detected.,"Require analyst/business manager review before inventory, pricing, promotion, or site decisions are acted on.",Decision-support review only; not autonomous business execution.,synthetic

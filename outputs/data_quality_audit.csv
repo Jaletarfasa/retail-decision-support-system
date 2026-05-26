@@ -1,0 +1,14 @@
+table_name,layer,source_type,rows,columns,missing_cells,duplicate_rows,missing_required_columns,status,issues,decision_implication
+store_master,raw,synthetic,12,10,0,0,,PASS,,Synthetic only
+supplier_master,raw,synthetic,8,7,0,0,,PASS,,Synthetic only
+product_master,raw,synthetic,150,13,0,0,,PASS,,Synthetic only
+customer_master_synthetic,raw,synthetic,9000,5,0,0,,PASS,,Synthetic only
+promotions_calendar,raw,synthetic,141,10,0,0,,PASS,,Synthetic only
+pricing_history,raw,synthetic,95400,6,0,0,,PASS,,Synthetic only
+pos_transaction_lines,raw,synthetic,212624,12,0,0,,PASS,,Synthetic only
+inventory_snapshots,raw,synthetic,47700,9,0,0,,PASS,,Synthetic only
+finance_daily_summary,raw,synthetic,4380,10,0,0,,PASS,,Synthetic only
+silver_pos_transaction_lines,silver,synthetic,212624,12,0,0,,PASS,,Synthetic only
+silver_sales_enriched,silver,synthetic,212624,33,0,0,,PASS,,Synthetic only
+silver_daily_sku_store_demand,silver,synthetic,212624,12,0,0,,PASS,,Synthetic only
+silver_inventory_enriched,silver,synthetic,47700,17,0,0,,PASS,,Synthetic only

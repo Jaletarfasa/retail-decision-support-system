@@ -1,0 +1,6 @@
+department,actual_sales_28d,actual_units_28d,forecast_units_next_28d,forecast_sales_next_28d,forecast_status,source_type,claim_boundary
+Electronics,549919.69,4830,5404.0,608613.16,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Grocery,1169846.21,11003,11082.0,1133888.55,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Health_Beauty,685032.17,6687,6320.0,753639.27,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Household,766903.61,7434,7826.0,817829.27,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+Seasonal,780608.46,7938,8213.0,753354.56,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.

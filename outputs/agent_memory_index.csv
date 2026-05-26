@@ -1,0 +1,4 @@
+memory_tier,storage_artifact,speed,purpose,max_growth_policy
+core,agent_memory_core.csv,fast/always loaded,"Stable project identity, source type, and claim boundaries.",Keep compact; do not store raw data here.
+episodic,agent_memory_episodic.csv,medium/run recall,"Run-specific observations, agent traces, quality events, and monitoring events.",Archive older runs; keep latest summaries.
+procedural,agent_memory_procedural.csv,fast/reusable skills,Reusable governance skills and decision rules.,Update only when the system process changes.

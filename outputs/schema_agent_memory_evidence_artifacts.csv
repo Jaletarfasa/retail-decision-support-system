@@ -1,0 +1,7 @@
+evidence_id,evidence_type,evidence_path,source_table,proof_status,claim_boundary,valid_from_utc
+evidence_model_comparison,csv,outputs/dashboard_model_comparison.csv,dashboard_model_comparison.csv,verified,Supports demo or pilot model comparison only; production performance requires temporal validation.,2026-05-26T15:20:31+00:00
+evidence_drift_monitor,csv,outputs/drift_monitor.csv,drift_monitor.csv,verified,Supports drift/watch review only; thresholds require calibration before automated decisions.,2026-05-26T15:20:31+00:00
+evidence_inventory_recommendations,csv,outputs/inventory_recommendations.csv,inventory_recommendations.csv,verified,Supports human-reviewed inventory recommendations only; no auto-execution.,2026-05-26T15:20:31+00:00
+evidence_data_quality,csv,outputs/data_quality_audit.csv,data_quality_audit.csv,verified,Supports data-quality gating only; does not prove production data governance.,2026-05-26T15:20:31+00:00
+evidence_fabric_live_manifest,manifest,artifacts/fabric_live/evidence_manifest.json,evidence_manifest.json,missing,Supports Fabric-ready or scaffolded evidence only; live proof requires workspace/item/screenshot/run evidence.,2026-05-26T15:20:31+00:00
+evidence_fabric_live_proof,none,artifacts/fabric_live,fabric_workspace_inventory.csv; fabric_item_inventory.csv; fabric_screenshot_register.csv; fabric_notebook_run_log.csv; fabric_pipeline_run_log.csv,missing,"Live Fabric claims are allowed only when API, screenshot, notebook, or pipeline evidence exists.",2026-05-26T15:20:31+00:00

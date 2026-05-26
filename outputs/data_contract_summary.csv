@@ -1,0 +1,10 @@
+table_name,field_count,business_keys,claim_boundary
+store_master,10,store_id,Synthetic contract
+supplier_master,7,supplier_id,Synthetic contract
+product_master,13,sku_id,Synthetic contract
+customer_master_synthetic,5,customer_hash,Synthetic contract
+promotions_calendar,10,promotion_id,Synthetic contract
+pricing_history,6,"price_date,store_id,sku_id",Synthetic contract
+pos_transaction_lines,12,transaction_id,Synthetic contract
+inventory_snapshots,9,"date,store_id,sku_id",Synthetic contract
+finance_daily_summary,10,"date,store_id",Synthetic contract

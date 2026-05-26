@@ -1,0 +1,13 @@
+store_id,region,net_sales,gross_margin_rate,sales_per_sqft,transactions,watch_reason,watch_status,source_type,claim_boundary
+ST001,West,4280756.46,0.36489342465753427,0.6778873972602739,18494,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST002,Prairie,3872339.18,0.360746301369863,0.24898931506849317,17941,Low margin rate,Watch,synthetic,Watchlist thresholds require business-owner calibration.
+ST003,Ontario,2655903.52,0.365181095890411,0.7130956164383562,14613,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST004,Quebec,6184758.13,0.3636339726027398,0.2374145205479452,20934,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST005,Atlantic,3179816.68,0.36405068493150683,0.11854191780821918,15911,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST006,West,4189148.78,0.3657841095890411,0.2545750684931507,18501,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST007,Prairie,2585753.32,0.36494054794520553,0.43536520547945207,14370,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST008,Ontario,4374719.53,0.36494054794520553,0.26704383561643835,18822,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST009,Quebec,5769194.31,0.3648465753424658,0.5967476712328768,20884,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST010,Atlantic,2688454.1,0.3633276712328767,0.3532175342465753,14710,Low margin rate,Watch,synthetic,Watchlist thresholds require business-owner calibration.
+ST011,West,5173121.56,0.3635547945205479,0.9318805479452055,19976,Normal,OK,synthetic,Watchlist thresholds require business-owner calibration.
+ST012,Prairie,3801783.1,0.36232383561643833,0.4591887671232877,17468,Low margin rate,Watch,synthetic,Watchlist thresholds require business-owner calibration.

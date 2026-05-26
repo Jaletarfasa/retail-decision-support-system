@@ -1,0 +1,21 @@
+timestamp_utc,connector_name,mode,status,endpoint_or_file,rows_returned,reason,source_type
+2026-05-26T15:20:31+00:00,POS API Connector,mock_or_file_based,completed,pos_transaction_lines,212624,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,POS API Connector,live_api,blocked,pos_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Inventory API Connector,mock_or_file_based,completed,inventory_snapshots,47700,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Inventory API Connector,live_api,blocked,inventory_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Product Master API Connector,mock_or_file_based,completed,product_master,150,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Product Master API Connector,live_api,blocked,product_master_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Store Master API Connector,mock_or_file_based,completed,store_master,12,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Store Master API Connector,live_api,blocked,store_master_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Pricing and Promotion API Connector,mock_or_file_based,completed,pricing_history; promotions_calendar,95541,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Pricing and Promotion API Connector,live_api,blocked,pricing_and_promotion_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Supplier API Connector,mock_or_file_based,completed,supplier_master,8,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Supplier API Connector,live_api,blocked,supplier_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Finance API Connector,mock_or_file_based,completed,finance_daily_summary,4380,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Finance API Connector,live_api,blocked,finance_api_connector,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Fabric Upload Connector,mock_or_file_based,completed,fabric_bundle/retail_decision_support_upload,created_if_gold_outputs_exist,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Fabric Upload Connector,live_api,blocked,microsoft_fabric_lakehouse_api,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Workflow Approval API Connector,mock_or_file_based,completed,agent_human_approval_queue.csv,created_if_agent_outputs_exist,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Workflow Approval API Connector,live_api,blocked,teams_slack_n8n_jira_servicenow_or_erp_api,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic
+2026-05-26T15:20:31+00:00,Audit and Monitoring API Connector,mock_or_file_based,completed,run_manifest.json; api_call_audit.csv,created,Local file/mock path used. This does not prove live API integration.,synthetic
+2026-05-26T15:20:31+00:00,Audit and Monitoring API Connector,live_api,blocked,production_logging_or_monitoring_backend,,"No authorized endpoint, credentials, schema contract, or permission supplied.",synthetic

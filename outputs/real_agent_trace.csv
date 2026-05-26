@@ -1,0 +1,11 @@
+timestamp_utc,agent_name,step,observation,planned_action,tool_used,result
+2026-05-26T15:20:31+00:00,Real Data Quality Agent,observe,Reading data_quality_audit.csv,Count failures and warnings,count_quality_failures,started
+2026-05-26T15:20:31+00:00,Real Data Quality Agent,decide,No blocking data-quality issue detected.,PASS,memory+final_decision,completed
+2026-05-26T15:20:31+00:00,Real Model Validation Agent,observe,Reading model comparison output,Inspect best model and evidence source,inspect_model_evidence,started
+2026-05-26T15:20:31+00:00,Real Model Validation Agent,decide,Synthetic model metrics do not prove real enterprise performance.,DEMO_ONLY_MODEL_EVIDENCE,memory+final_decision,completed
+2026-05-26T15:20:31+00:00,Real Decision Risk Agent,observe,Reading drift and inventory outputs,Inspect risk signals,inspect_drift+inspect_inventory_risk,started
+2026-05-26T15:20:31+00:00,Real Decision Risk Agent,decide,3 high-priority inventory row(s); 4 drift-watch row(s).,HUMAN_APPROVAL_REQUIRED,memory+final_decision,completed
+2026-05-26T15:20:31+00:00,Real Evidence Boundary Agent,observe,Checking source type and execution evidence,Inspect claim boundaries,inspect_evidence_boundary,started
+2026-05-26T15:20:31+00:00,Real Evidence Boundary Agent,decide,Source type is synthetic; real enterprise integration is not proven.,BLOCK_ENTERPRISE_INTEGRATION_CLAIM,memory+final_decision,completed
+2026-05-26T15:20:31+00:00,Real Executive Narrative Agent,observe,Collecting summaries from tool registry,Write bounded narrative,multiple_tools,started
+2026-05-26T15:20:31+00:00,Real Executive Narrative Agent,decide,"The current system evidence is enterprise-like synthetic simulation. It contains 10 model row(s), best reported MAE 2.85, 4 drift-watch feature(s), and 50 approval-required recommendation row(s). Use this as decision-support evidence only; human approval and real validation are required before operational action.",NARRATIVE_CREATED,memory+final_decision,completed

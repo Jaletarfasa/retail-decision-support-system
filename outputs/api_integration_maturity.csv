@@ -1,0 +1,7 @@
+capability,current_evidence,maturity,what_it_does_not_prove,upgrade_evidence_needed,source_type
+API connector architecture,Connector registry and ingestion plan generated.,Implemented as architecture artifact,Does not prove live API connection.,Successful API calls to authorized endpoints with logs.,synthetic
+Mock/file-based connector mode,Local synthetic/public/generic-real file ingestion supported.,Implemented,Does not prove real-time or governed source-system integration.,"Source-system API access, pipeline runs, and data-owner approval.",synthetic
+Live source API mode,Scaffolded conceptually; blocked in code until endpoints and credentials exist.,Not Confirmed,No live source API call is made by this script.,"Endpoint configuration, authentication, successful extract log, schema check.",synthetic
+Fabric API/platform execution,Fabric bundle and notebook cell generated.,"Fabric-ready, not executed",Does not prove live Fabric execution from local run alone.,"Fabric notebook success, Lakehouse tables, execution audit, pipeline run history.",synthetic
+Workflow/approval API integration,Approval queue generated as CSV.,Architecture artifact / local queue,"No Teams, Slack, n8n, Jira, ServiceNow, or ERP approval API call is made.",Webhook/API call logs and human approval records.,synthetic
+Production API governance,Security checklist and claim boundaries generated.,Not Confirmed,"No production security, RBAC, SLA, or incident response is implemented.","RBAC, secrets, CI/CD, monitoring, incident/rollback, users, and support model.",synthetic

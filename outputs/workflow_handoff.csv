@@ -1,0 +1,6 @@
+workflow_step,status,owner,action_required,auto_execute
+Recommendations Generated,Completed,System,Review high-priority inventory recommendations,0
+Analyst Review,Pending,Analyst,Validate drift/watch items and recommendation logic,0
+Manager Approval,Pending,Business Manager,Approve operational action before execution,0
+Actions Published,Blocked until approval,Operations,Do not auto-execute in demo/pilot mode,0
+Source Type,synthetic,Documentation,Do not overclaim source maturity,0

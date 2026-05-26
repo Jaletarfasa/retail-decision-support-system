@@ -1,0 +1,17 @@
+memory_tier,event_type,event_key,event_value,evidence_source,confidence,forget_or_archive_policy
+episodic,run_summary,best_model,lstm_gru_sequence,dashboard_model_comparison.csv,Medium,Archive after newer validated run exists.
+episodic,run_summary,best_mae,2.85,dashboard_model_comparison.csv,Medium,Archive after newer validated run exists.
+episodic,monitoring,drift_watch_rows,4,drift_monitor.csv,Medium,Compare against next run.
+episodic,approval,human_review_required_rows,50,inventory_recommendations.csv,Medium,Resolve after human review.
+episodic,quality,quality_failures,0,data_quality_audit.csv,High,Must be resolved before stronger claims.
+episodic,quality,quality_warnings,0,data_quality_audit.csv,High,Review before operational use.
+episodic,agent_trace,trace_001,Real Data Quality Agent: observe -> started,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_002,Real Data Quality Agent: decide -> completed,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_003,Real Model Validation Agent: observe -> started,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_004,Real Model Validation Agent: decide -> completed,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_005,Real Decision Risk Agent: observe -> started,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_006,Real Decision Risk Agent: decide -> completed,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_007,Real Evidence Boundary Agent: observe -> started,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_008,Real Evidence Boundary Agent: decide -> completed,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_009,Real Executive Narrative Agent: observe -> started,real_agent_trace.csv,High,Archive as run trace.
+episodic,agent_trace,trace_010,Real Executive Narrative Agent: decide -> completed,real_agent_trace.csv,High,Archive as run trace.

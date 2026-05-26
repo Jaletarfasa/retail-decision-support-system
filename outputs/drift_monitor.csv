@@ -1,0 +1,6 @@
+feature,ks_stat,p_value,status,recommended_response,source_type,claim_boundary
+price_log,0.0026141971403264,0.9998384213866576,No material drift,Continue monitoring,synthetic,Demo monitoring output; thresholds require production calibration.
+lag_7,0.0125150786621114,0.0106158802835363,Watch,Review feature drift context,synthetic,Demo monitoring output; thresholds require production calibration.
+rolling_mean_28,0.0197182504534143,4.533244956014451e-06,Watch,Review demand trend changes,synthetic,Demo monitoring output; thresholds require production calibration.
+assortment_health_ratio,0.0605955544308068,9.818204481279467e-54,Watch,Check assortment changes before acting,synthetic,Demo monitoring output; thresholds require production calibration.
+sales_per_sqft_28d,0.0855683495718925,8.34916387145772e-107,Watch,Review store productivity shifts,synthetic,Demo monitoring output; thresholds require production calibration.

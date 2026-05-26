@@ -1,0 +1,11 @@
+model_name,model_type,test_mae,test_rmse,test_wmape,bias,selected_flag,decision_note,source_type,claim_boundary
+lstm_gru_sequence,deep_sequence,2.85,4.0248,0.2894,-0.0526,1,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+lightgbm_like,classical_ml,2.9959,4.1972,0.1806,-0.02,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+mlp_deep_tabular,deep_tabular,3.0216,4.2861,0.2211,-0.109,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+xgboost_like,classical_ml,3.2383,4.584,0.1903,0.0443,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+hist_gradient_boosting,classical_ml,3.4005,4.2488,0.2413,-0.1333,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+extra_trees,classical_ml,3.4319,4.8831,0.2044,-0.0221,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+random_forest,classical_ml,3.5743,5.1076,0.2209,0.0038,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+elasticnet,classical_ml,3.7683,4.9235,0.2792,0.1481,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+moving_average_28d,baseline,3.8397,4.8768,0.2574,0.0364,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.
+seasonal_naive,baseline,4.0156,5.2181,0.217,0.0446,0,Demo metric; real temporal validation required.,synthetic,Not proof of real enterprise model performance unless trained/validated on approved real data.

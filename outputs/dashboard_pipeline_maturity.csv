@@ -1,0 +1,14 @@
+capability,status,maturity,upgrade_needed
+Source data loaded,Implemented,Demo / Portfolio,Confirm source authorization and quality.
+Data contracts,Generated as JSON documentation,Demo / Portfolio,Validate with real source owners.
+Raw/Bronze layer,Implemented locally as CSV,Demo / Portfolio,Move to governed Lakehouse/Warehouse for Fabric evidence.
+Silver cleaned/joined layer,Implemented locally as CSV,Demo / Portfolio,Schedule and monitor transformations.
+Gold/dashboard outputs,Implemented locally as CSV,Demo / Portfolio,Connect to governed BI/dashboard layer.
+Model comparison,Demo table generated,Demo / Portfolio,Train and validate with temporal backtesting.
+Deep learning,Represented as candidate model family,Demo / Portfolio,Prove lift over baselines on approved real data.
+Monitoring and retraining status,Demo outputs generated,Demo / Portfolio,Calibrate thresholds and alerts.
+Human-in-the-loop workflow,Workflow handoff table generated,Demo / Portfolio,Integrate approvals with operational tools.
+Real enterprise source integration,Not implemented unless generic-real uses approved live source exports,Not Confirmed,Connect governed source feeds.
+Live Microsoft Fabric execution,Not implemented by local script,Not Confirmed,Run generated Fabric notebook/pipeline and capture history.
+Enterprise security/RBAC,Not implemented,Not Confirmed,"Add authentication, roles, secrets, and data access policy."
+Production SLA/observability,Not implemented,Not Confirmed,"Add alerting, incident response, rollback, uptime tracking."

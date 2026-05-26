@@ -1,0 +1,4 @@
+question,deterministic_answer,evidence,claim_boundary
+Is live Fabric API proof available?,No,workspace_rows=0; item_rows=0,Do not claim live Fabric API proof when workspace and item evidence rows are zero.
+Can the system auto-execute inventory decisions?,No,approval_required_count=50; auto_execute_allowed=False,Inventory actions are advisory and human-reviewed.
+What is the current best-ranked model?,lstm_gru_sequence,dashboard_model_comparison.csv,Best-ranked within current output only; not production performance proof.

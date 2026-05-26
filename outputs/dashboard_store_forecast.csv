@@ -1,0 +1,13 @@
+store_id,actual_sales_28d,actual_units_28d,forecast_units_next_28d,forecast_sales_next_28d,forecast_status,source_type,claim_boundary
+ST001,356736.81,3431,3258.0,347983.18,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST002,322184.18,3083,2913.0,357985.63,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST003,224419.58,2123,2301.0,221764.46,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST004,478321.84,4572,4802.0,489536.1,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST005,258805.55,2501,2660.0,286058.96,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST006,354512.84,3345,3305.0,368945.77,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST007,222709.94,2114,2032.0,216146.24,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST008,352064.45,3385,3490.0,338648.15,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST009,467692.32,4444,4507.0,480484.32,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST010,218158.59,2145,2221.0,214519.05,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST011,389944.17,3803,4159.0,362327.45,Stable/Decline,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.
+ST012,306759.87,2946,3081.0,341077.28,Growth,synthetic,Forecast-style output; production use requires validated forecasting model and thresholds.

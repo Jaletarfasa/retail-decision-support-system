@@ -1,0 +1,5 @@
+question,answer,source_table,claim_boundary
+Which model is best?,"The best-ranked model is currently best under active filters, but production performance requires real temporal validation.",dashboard_model_comparison.csv,Demo or pilot evidence only.
+Is drift elevated?,Drift monitoring has rows in Watch status. Production thresholds must be calibrated before blocking outputs or retraining.,drift_monitor.csv,Demo monitoring evidence.
+Can the system auto-execute inventory decisions?,No. The workflow requires human review and approval before operational action.,workflow_handoff.csv,Not enterprise workflow integration by itself.
+Does this prove real enterprise integration?,Only if approved real enterprise data and source documentation are provided. Synthetic/public data alone does not prove enterprise integration.,run_manifest.json,Current source type: synthetic

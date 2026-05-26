@@ -1,0 +1,2 @@
+agent_name,review_area,input_table,decision,risk_level,reason,required_human_action,claim_boundary,source_type
+Data Quality Agent,"schema, rows, missingness, duplicates",data_quality_audit.csv,PASS,Low,No blocking data-quality issues detected.,No immediate action.,Rule-based governance check; not autonomous AI.,synthetic
