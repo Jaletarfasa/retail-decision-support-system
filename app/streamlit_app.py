@@ -295,25 +295,26 @@ def locate_any_csv(candidates: List[str]) -> Optional[Path]:
 
 
 @st.cache_data(show_spinner=False)
+def read_csv_cached(path: str, modified_time: float) -> pd.DataFrame:
+    # modified_time is part of the cache key, so a redeployed or regenerated file is re-read.
+    try:
+        return pd.read_csv(path)
+    except Exception:
+        return pd.DataFrame()
+
+
 def load_named_csv(filename: str) -> pd.DataFrame:
     path = locate_named_csv(filename)
     if path is None:
         return pd.DataFrame()
-    try:
-        return pd.read_csv(path)
-    except Exception:
-        return pd.DataFrame()
+    return read_csv_cached(str(path), path.stat().st_mtime)
 
 
-@st.cache_data(show_spinner=False)
 def load_any_csv(candidates: List[str]) -> pd.DataFrame:
     path = locate_any_csv(candidates)
     if path is None:
         return pd.DataFrame()
-    try:
-        return pd.read_csv(path)
-    except Exception:
-        return pd.DataFrame()
+    return read_csv_cached(str(path), path.stat().st_mtime)
 
 
 def check_required_datasets() -> pd.DataFrame:
