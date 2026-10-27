@@ -264,15 +264,25 @@ st.markdown(
 # Helpers
 # -------------------------------------------------
 def locate_named_csv(filename: str) -> Optional[Path]:
-    for candidate in [
-        PROJECT_ROOT / filename,
-        APP_DIR / filename,
-        OUTPUTS_DIR / filename,
-        ENTERPRISE_GOLD_DIR / filename,
-        DATA_DIR / filename,
-    ]:
+    search_dirs = [
+        PROJECT_ROOT,
+        APP_DIR,
+        OUTPUTS_DIR,
+        ENTERPRISE_GOLD_DIR,
+        DATA_DIR,
+        PROJECT_ROOT / "data" / "enterprise_upgrade" / "silver",
+        PROJECT_ROOT / "data" / "enterprise_upgrade" / "gold",
+        PROJECT_ROOT / "data" / "enterprise_upgrade" / "raw",
+        PROJECT_ROOT / "data" / "enterprise_upgrade" / "bronze",
+        PROJECT_ROOT / "data" / "enterprise_upgrade" / "fabric_bundle" / "retail_decision_support_upload",
+        PROJECT_ROOT / "artifacts" / "demo" / "source",
+    ]
+
+    for base_dir in search_dirs:
+        candidate = base_dir / filename
         if candidate.exists():
             return candidate
+
     return None
 
 
@@ -410,9 +420,9 @@ def apply_filters(
 
 def format_kpi(value: float) -> str:
     if abs(value) >= 1_000_000:
-        return f"{value:,.1f}M".replace(".0M", "M")
+        return f"{value / 1_000_000:,.1f}M".replace(".0M", "M")
     if abs(value) >= 1_000:
-        return f"{value:,.1f}K".replace(".0K", "K")
+        return f"{value / 1_000:,.1f}K".replace(".0K", "K")
     if float(value).is_integer():
         return f"{int(value):,}"
     return f"{value:,.2f}"
@@ -1139,6 +1149,12 @@ site_df = load_any_csv(["optimized_site_selection.csv", "site_selection_rankings
 agent_df = load_named_csv("agent_answers.csv")
 watch_df = load_named_csv("store_watchlist.csv")
 
+# Large enterprise-upgrade silver datasets
+silver_sales_enriched_df = load_named_csv("silver_sales_enriched.csv")
+silver_daily_sku_store_demand_df = load_named_csv("silver_daily_sku_store_demand.csv")
+silver_inventory_enriched_df = load_named_csv("silver_inventory_enriched.csv")
+silver_pos_transaction_lines_df = load_named_csv("silver_pos_transaction_lines.csv")
+
 maturity_df = load_named_csv("dashboard_pipeline_maturity.csv")
 
 # Fabric-ready governance artifacts
@@ -1188,6 +1204,10 @@ schema_memory_answer_examples_df = load_named_csv("schema_agent_memory_answer_ex
 dataset_guardrail_status = enforce_required_datasets(strict=False)
 
 browser_tables: Dict[str, pd.DataFrame] = {
+    "silver_sales_enriched.csv": silver_sales_enriched_df,
+    "silver_daily_sku_store_demand.csv": silver_daily_sku_store_demand_df,
+    "silver_inventory_enriched.csv": silver_inventory_enriched_df,
+    "silver_pos_transaction_lines.csv": silver_pos_transaction_lines_df,
     "dashboard_executive_summary.csv": exec_df,
     "dashboard_model_comparison.csv": model_df,
     "dashboard_store_forecast.csv": store_df,
@@ -1904,6 +1924,10 @@ elif page == "Data Browser":
     render_active_filters(current_filters)
 
     filtered_browser_tables: Dict[str, pd.DataFrame] = {
+        "silver_sales_enriched.csv": silver_sales_enriched_df,
+        "silver_daily_sku_store_demand.csv": silver_daily_sku_store_demand_df,
+        "silver_inventory_enriched.csv": silver_inventory_enriched_df,
+        "silver_pos_transaction_lines.csv": silver_pos_transaction_lines_df,
         "dashboard_executive_summary.csv": exec_df_f,
         "dashboard_model_comparison.csv": model_df_f,
         "dashboard_store_forecast.csv": store_df_f,

@@ -735,6 +735,48 @@ def build_model_comparison(source_type: str, rng: np.random.Generator) -> pd.Dat
     return pd.DataFrame(rows).sort_values("test_mae").reset_index(drop=True)
 
 
+PIPELINE_MODEL_FAMILIES = {
+    "baseline_last28": "baseline",
+    "elasticnet": "classical_ml",
+    "random_forest": "classical_ml",
+    "extra_trees": "classical_ml",
+    "hist_gradient_boosting": "classical_ml",
+    "xgboost": "classical_ml",
+    "lightgbm": "classical_ml",
+    "mlp_deep": "deep_tabular",
+    "gru": "deep_sequence",
+    "lstm": "deep_sequence",
+}
+
+
+def load_pipeline_model_comparison(project_root: Path, source_type: str) -> pd.DataFrame:
+    """Read the forecasting pipeline's model comparison and map it to the gold schema.
+
+    Returns an empty frame when the pipeline file is missing or lacks the metric columns,
+    so the caller can fall back to the demo comparison.
+    """
+    path = project_root / "dashboard_model_comparison.csv"
+    if not path.exists():
+        return pd.DataFrame()
+    real = read_csv_safe(path)
+    if not {"model_type", "mae", "rmse", "wmape"}.issubset(real.columns):
+        return pd.DataFrame()
+    names = real["model_type"].astype(str)
+    out = pd.DataFrame({
+        "model_name": names,
+        "model_type": names.map(PIPELINE_MODEL_FAMILIES).fillna("classical_ml"),
+        "test_mae": pd.to_numeric(real["mae"], errors="coerce").round(4),
+        "test_rmse": pd.to_numeric(real["rmse"], errors="coerce").round(4),
+        "test_wmape": pd.to_numeric(real["wmape"], errors="coerce").round(4),
+        "bias": pd.to_numeric(real.get("bias", pd.Series(np.nan, index=real.index)), errors="coerce").round(4),
+        "selected_flag": pd.to_numeric(real.get("selected_flag", pd.Series(0, index=real.index)), errors="coerce").fillna(0).astype(int),
+        "decision_note": real.get("decision_note", pd.Series("Pipeline model comparison.", index=real.index)),
+        "source_type": source_type,
+        "claim_boundary": "Forecasting pipeline temporal holdout (last 30 days); not proof of production performance.",
+    })
+    return out.sort_values("test_mae").reset_index(drop=True)
+
+
 def forecast_group(daily: pd.DataFrame, group_col: str, rng: np.random.Generator, source_type: str) -> pd.DataFrame:
     if daily.empty or group_col not in daily.columns or "net_sales" not in daily.columns:
         return pd.DataFrame(columns=[group_col, "actual_units_28d", "actual_sales_28d", "forecast_units_next_28d", "forecast_sales_next_28d", "forecast_status", "claim_boundary"])
@@ -884,12 +926,16 @@ def agent_answers(source_type: str) -> pd.DataFrame:
     ])
 
 
-def build_gold(raw: Dict[str, pd.DataFrame], silver: Dict[str, pd.DataFrame], quality: pd.DataFrame, contracts: Dict[str, Any], source_type: str, rng: np.random.Generator) -> Dict[str, pd.DataFrame]:
+def build_gold(raw: Dict[str, pd.DataFrame], silver: Dict[str, pd.DataFrame], quality: pd.DataFrame, contracts: Dict[str, Any], source_type: str, rng: np.random.Generator, project_root: Path | None = None) -> Dict[str, pd.DataFrame]:
     finance = raw.get("finance_daily_summary", pd.DataFrame())
     daily = silver.get("silver_daily_sku_store_demand", pd.DataFrame())
     stores = raw.get("store_master", pd.DataFrame())
     products = raw.get("product_master", pd.DataFrame())
+    # Always draw the demo comparison so the rng stream (and every later demo table) is unchanged.
     model = build_model_comparison(source_type, rng)
+    pipeline_model = load_pipeline_model_comparison(project_root, source_type) if project_root is not None else pd.DataFrame()
+    if not pipeline_model.empty:
+        model = pipeline_model
     drift, status, audit = monitoring_outputs(source_type)
     total_sales = float(pd.to_numeric(finance.get("net_sales", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()) if not finance.empty else 0.0
     total_units = float(pd.to_numeric(finance.get("units_sold", pd.Series(dtype=float)), errors="coerce").fillna(0).sum()) if not finance.empty else np.nan
@@ -3207,7 +3253,7 @@ def run(config: Config) -> Dict[str, Any]:
     silver = build_silver(raw)
     quality = build_quality(raw, silver, source_type)
     contracts = build_contracts(raw, source_type)
-    gold = build_gold(raw, silver, quality, contracts, source_type, rng)
+    gold = build_gold(raw, silver, quality, contracts, source_type, rng, project_root=root)
     agent_outputs = build_agent_governance_outputs(gold, quality, source_type)
     gold.update(agent_outputs)
     real_agent_outputs = run_real_agent_orchestration(gold, quality, source_type)

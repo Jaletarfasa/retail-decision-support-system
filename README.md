@@ -16,7 +16,7 @@ This project is a modular retail decision support demo covering forecasting, mod
 - `standard`: current default behavior
 - `demo`: smaller synthetic data, serial-safe settings, and faster runtime for portfolio walkthroughs
 
-Set the mode in [`config/app_config.yaml`](C:\Users\S.Tarfasa\Desktop\Data Scientist_2026\retail_decision_support_full_version\config\app_config.yaml) by changing `runtime_mode`.
+Set the mode in [`config/app_config.yaml`](config/app_config.yaml) by changing `runtime_mode`.
 
 ## Quick start
 
@@ -30,5 +30,5 @@ streamlit run app/streamlit_app.py
 
 More detail:
 
-- Tests and full happy path: [`docs/demo_runbook.md`](C:\Users\S.Tarfasa\Desktop\Data Scientist_2026\retail_decision_support_full_version\docs\demo_runbook.md)
-- Portfolio framing and architecture summary: [`docs/portfolio_overview.md`](C:\Users\S.Tarfasa\Desktop\Data Scientist_2026\retail_decision_support_full_version\docs\portfolio_overview.md)
+- Tests and full happy path: [`docs/demo_runbook.md`](docs/demo_runbook.md)
+- Portfolio framing and architecture summary: [`docs/portfolio_overview.md`](docs/portfolio_overview.md)
